@@ -30,6 +30,7 @@ export const translations = {
       eff: "Eff.",
       design: "DESIGN",
       shift: "SHIFT",
+      enterFacility: "ENTER FACILITY",
       networkStatus: "Network Status",
       encryptedConn: "ENCRYPTED CONNECTION ESTABLISHED",
       exitSystem: "Exit System"
@@ -65,7 +66,10 @@ export const translations = {
       academy: "Academy",
       startShift: "Start Shift",
       intercom: "INTERCOM",
-      waiting: "Waiting for next event..."
+      waiting: "Waiting for next event...",
+      mustBeOnEdge: "Bays must be placed on the edge of the warehouse (1 tile from the border).",
+      palletDispatched: "Pallet dispatched successfully!",
+      bayBlocked: "Delivery failed: Bay blocked!"
     },
     buildings: {
       bulldoze: "Bulldoze",
@@ -76,7 +80,7 @@ export const translations = {
       heavyRackDesc: "Standard pallet storage",
       cantilever: "Cantilever",
       cantileverDesc: "Long goods storage",
-      loadingBay: "Loading Bay",
+      loadingBay: "Receiving Bay",
       loadingBayDesc: "Receive goods here",
       truck: "Truck",
       truckDesc: "Delivery vehicle",
@@ -84,8 +88,8 @@ export const translations = {
       palletDesc: "Standard unit load",
       forkliftStation: "Forklift Station",
       forkliftStationDesc: "Deploy forklift",
-      crossDocking: "Cross Docking",
-      crossDockingDesc: "Fast transfer area"
+      crossDocking: "Dispatch Bay",
+      crossDockingDesc: "Outbound goods"
     },
     tutorial: {
       step1: "Welcome to Optistock Pro Academy. Your first lesson is warehouse layout. Place a Floor tile to create a safe driving surface.",
@@ -95,12 +99,12 @@ export const translations = {
       step5: "Design phase complete. Switch to SHIFT mode to begin operation. Use WASD to drive, SPACE to pick/drop, and Q/E to adjust fork height."
     },
     challenges: {
-      c1Title: "Inbound Logistics 101",
-      c1Desc: "Move 3 pallets from the Loading Bay to the Heavy Racks. Focus on safe driving and proper fork height adjustment.",
-      c2Title: "High Density Storage",
-      c2Desc: "Navigate tight aisles to store 5 pallets. Precision is key. Avoid unnecessary movements to save fuel.",
-      c3Title: "Cross-Docking Rush",
-      c3Desc: "Move 8 pallets quickly. Time is money. Optimize your routes between the Loading Bay and storage."
+      slot1_basicTitle: "Level 1: Basic Operations",
+      slot1_basicDesc: "Receive 1 pallet from the Receiving Bay and dispatch it via the Dispatch Bay.",
+      slot2_densityTitle: "Level 2: Dual Bays",
+      slot2_densityDesc: "Manage incoming pallets and dispatch 3 pallets efficiently.",
+      slot3_speedTitle: "Level 3: Full Warehouse",
+      slot3_speedDesc: "A busy day! Dispatch 5 pallets before time runs out."
     },
     messages: {
       tutorialComplete: "Excellent! Step {step} completed. +500 XP",
@@ -174,6 +178,7 @@ export const translations = {
       eff: "Efic.",
       design: "DISEÑAR",
       shift: "TURNO",
+      enterFacility: "INGRESAR A INSTALACIÓN",
       networkStatus: "Estado de la Red",
       encryptedConn: "CONEXIÓN ENCRIPTADA ESTABLECIDA",
       exitSystem: "Salir del Sistema"
@@ -209,7 +214,10 @@ export const translations = {
       academy: "Academia",
       startShift: "Iniciar Turno",
       intercom: "INTERCOMUNICADOR",
-      waiting: "Esperando el próximo evento..."
+      waiting: "Esperando el próximo evento...",
+      mustBeOnEdge: "Las bahías deben colocarse en el borde del almacén (a 1 cuadro del límite).",
+      palletDispatched: "¡Palet despachado con éxito!",
+      bayBlocked: "Entrega fallida: ¡Bahía bloqueada!"
     },
     buildings: {
       bulldoze: "Demoler",
@@ -220,7 +228,7 @@ export const translations = {
       heavyRackDesc: "Almacenamiento estándar",
       cantilever: "Cantilever",
       cantileverDesc: "Cargas largas",
-      loadingBay: "Muelle de Carga",
+      loadingBay: "Bahía de Recepción",
       loadingBayDesc: "Recibir mercancías",
       truck: "Camión",
       truckDesc: "Vehículo de entrega",
@@ -228,8 +236,8 @@ export const translations = {
       palletDesc: "Unidad de carga",
       forkliftStation: "Estación Montacargas",
       forkliftStationDesc: "Desplegar montacargas",
-      crossDocking: "Cross Docking",
-      crossDockingDesc: "Área de transferencia rápida"
+      crossDocking: "Bahía de Despacho",
+      crossDockingDesc: "Salida de mercancías"
     },
     tutorial: {
       step1: "Bienvenido a la Academia Optistock Pro. Tu primera lección es el diseño del almacén. Coloca un Suelo para crear una superficie de conducción segura.",
@@ -239,12 +247,12 @@ export const translations = {
       step5: "Fase de diseño completada. Cambia al modo TURNO para comenzar la operación. Usa WASD para conducir, ESPACIO para recoger/soltar, y Q/E para ajustar la altura de las horquillas."
     },
     challenges: {
-      c1Title: "Logística de Entrada 101",
-      c1Desc: "Mueve 3 palets desde el Muelle de Carga a los Estantes Pesados. Concéntrate en conducir de forma segura y ajustar bien la altura de las horquillas.",
-      c2Title: "Almacenamiento de Alta Densidad",
-      c2Desc: "Navega por pasillos estrechos para almacenar 5 palets. La precisión es clave. Evita movimientos innecesarios para ahorrar combustible.",
-      c3Title: "Prisa de Cross-Docking",
-      c3Desc: "Mueve 8 palets rápidamente. El tiempo es dinero. Optimiza tus rutas entre el Muelle de Carga y el almacenamiento."
+      slot1_basicTitle: "Nivel 1: Operaciones Básicas",
+      slot1_basicDesc: "Recibe 1 caja de la Bahía de Recepción y despáchala por la Bahía de Despacho.",
+      slot2_densityTitle: "Nivel 2: Bahías Dobles",
+      slot2_densityDesc: "Gestiona las cajas entrantes y despacha 3 cajas eficientemente.",
+      slot3_speedTitle: "Nivel 3: Almacén Lleno",
+      slot3_speedDesc: "¡Un día ocupado! Despacha 5 cajas antes de que se acabe el tiempo."
     },
     messages: {
       tutorialComplete: "¡Excelente! Paso {step} completado. +500 XP",

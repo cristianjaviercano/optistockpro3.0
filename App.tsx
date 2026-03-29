@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Grid, TileData, BuildingType, WarehouseStats, GameMode, NewsItem, SaveSlot, Challenge, UserProgress, Language } from './types';
-import { GRID_SIZE, BUILDINGS, TICK_RATE_MS, INITIAL_MONEY, INITIAL_FUEL, TUTORIAL_STEPS, getPrebuiltGrid, getPrebuiltGrid2, getPrebuiltGrid3, CHALLENGES } from './constants';
+import { Grid, TileData, BuildingType, WarehouseStats, GameMode, NewsItem, SaveSlot, Challenge, UserProgress, Language, ActiveBay } from './types';
+import { GRID_SIZE, BUILDINGS, TICK_RATE_MS, INITIAL_MONEY, INITIAL_FUEL, TUTORIAL_STEPS, getPrebuiltGrid, getPrebuiltGrid2, getPrebuiltGrid3, CHALLENGES, getInwardTile } from './constants';
 import { translations } from './locales';
 import IsoMap from './components/IsoMap';
 import UIOverlay from './components/UIOverlay';
@@ -29,6 +29,7 @@ const INITIAL_STATS: WarehouseStats = {
   fuel: INITIAL_FUEL, 
   efficiency: 100, 
   day: 1,
+  time: 8, // Start at 8:00 AM
   score: 0 
 };
 
@@ -73,7 +74,7 @@ function App() {
       if (i === 1) {
         slots.push({
           id: i,
-          name: "Sample Distribution Center",
+          name: "Level 1: Basic Operations",
           grid: getPrebuiltGrid(),
           stats: { ...INITIAL_STATS, money: 5000, day: 10 },
           lastSaved: new Date().toISOString(),
@@ -82,7 +83,7 @@ function App() {
       } else if (i === 2) {
         slots.push({
           id: i,
-          name: "High Density Storage",
+          name: "Level 2: Dual Bays",
           grid: getPrebuiltGrid2(),
           stats: { ...INITIAL_STATS, money: 8000, day: 5 },
           lastSaved: new Date().toISOString(),
@@ -91,7 +92,7 @@ function App() {
       } else if (i === 3) {
         slots.push({
           id: i,
-          name: "Fast Throughput Hub",
+          name: "Level 3: Full Warehouse",
           grid: getPrebuiltGrid3(),
           stats: { ...INITIAL_STATS, money: 12000, day: 2 },
           lastSaved: new Date().toISOString(),
@@ -117,6 +118,8 @@ function App() {
   const [carryingPallet, setCarryingPallet] = useState(false);
   const [forksLevel, setForksLevel] = useState(0); // 0, 1, 2
   const [dropEffect, setDropEffect] = useState<{x: number, y: number, id: number} | null>(null);
+  const [activeBays, setActiveBays] = useState<ActiveBay[]>([]);
+  const [palletsSpawned, setPalletsSpawned] = useState(0);
 
   // Refs for accessing state inside intervals
   const gridRef = useRef(grid);
@@ -271,27 +274,63 @@ function App() {
           if (prev <= 1) {
             addNewsItem(tMsg.missionFailed, 'negative', 'Controller');
             setActiveChallenge(null);
+            setGameMode(GameMode.Design);
             return 0;
           }
           return prev - 1;
         });
       }
 
-      // Spawn pallets at Loading Bays
+      // Spawn pallets at Receiving Bays
       if (gameModeRef.current === GameMode.Forklift && Math.random() > 0.8) {
-        const loadingBays = gridRef.current.flat().filter(t => t.buildingType === BuildingType.LoadingBay);
-        if (loadingBays.length > 0) {
-          const bay = loadingBays[Math.floor(Math.random() * loadingBays.length)];
-          // Check if adjacent tile is floor and empty
-          const adjX = bay.x;
-          const adjY = bay.y + 1; // Simple logic: spawn below bay
-          if (adjY < GRID_SIZE && gridRef.current[adjY][adjX].buildingType === BuildingType.Floor) {
-            setGrid(prev => {
-              const newGrid = prev.map(row => [...row]);
-              newGrid[adjY][adjX] = { ...newGrid[adjY][adjX], buildingType: BuildingType.Pallet };
-              return newGrid;
+        if (activeChallenge && palletsSpawned < activeChallenge.targetPallets) {
+          const receivingBays = gridRef.current.flat().filter(t => t.buildingType === BuildingType.LoadingBay);
+          if (receivingBays.length > 0) {
+            const bay = receivingBays[Math.floor(Math.random() * receivingBays.length)];
+            
+            // Check if bay is already active
+            setActiveBays(prev => {
+              if (prev.some(b => b.x === bay.x && b.y === bay.y)) return prev;
+
+              const truckId = Date.now();
+              const newBay: ActiveBay = { id: truckId, x: bay.x, y: bay.y, type: 'inbound', phase: 'arriving' };
+              
+              addNewsItem(tMsg.truckDelivery, 'positive');
+              setPalletsSpawned(p => p + 1);
+
+              // Sequence: arriving -> unloading -> leaving -> remove
+              setTimeout(() => {
+                setActiveBays(current => current.map(b => b.id === truckId ? { ...b, phase: 'unloading' } : b));
+                
+                // Spawn pallet after unloading starts
+                setTimeout(() => {
+                  setGrid(gridPrev => {
+                    const newGrid = gridPrev.map(row => [...row]);
+                    // Find adjacent floor tile
+                    const inward = getInwardTile(bay.x, bay.y, GRID_SIZE);
+                    if (inward && newGrid[inward.y][inward.x].buildingType === BuildingType.Floor && !newGrid[inward.y][inward.x].pallets?.[0]) {
+                      newGrid[inward.y][inward.x] = { ...newGrid[inward.y][inward.x], pallets: [true, false, false] };
+                      addNewsItem(tMsg.newPallet, 'neutral');
+                    } else {
+                      addNewsItem(tMsg.bayBlocked, 'negative');
+                    }
+                    return newGrid;
+                  });
+
+                  // Then leave
+                  setTimeout(() => {
+                    setActiveBays(current => current.map(b => b.id === truckId ? { ...b, phase: 'leaving' } : b));
+                    
+                    // Finally remove
+                    setTimeout(() => {
+                      setActiveBays(current => current.filter(b => b.id !== truckId));
+                    }, 2000);
+                  }, 2000);
+                }, 1000);
+              }, 2000);
+
+              return [...prev, newBay];
             });
-            addNewsItem(tMsg.newPallet, 'neutral');
           }
         }
       }
@@ -304,6 +343,17 @@ function App() {
         const event = events[Math.floor(Math.random() * events.length)];
         addNewsItem(event.text, event.type as any);
       }
+      
+      // Time progression
+      setStats(prev => {
+        let newTime = prev.time + (1 / 60); // 1 in-game hour = 60 real seconds (1 minute per hour)
+        let newDay = prev.day;
+        if (newTime >= 18) { // Shift ends at 18:00 (6:00 PM)
+          newTime = 8;
+          newDay += 1;
+        }
+        return { ...prev, time: newTime, day: newDay };
+      });
 
     }, TICK_RATE_MS);
 
@@ -452,6 +502,7 @@ function App() {
 
   const startChallenge = (challenge: Challenge) => {
     setActiveChallenge(challenge);
+    setPalletsSpawned(0);
     setChallengeTimer(challenge.timeLimit);
     const challengeTitle = translations[language].challenges[`${challenge.id}Title` as keyof typeof translations['en']['challenges']] || challenge.title;
     setCurrentTask({
@@ -484,6 +535,7 @@ function App() {
     setActiveChallenge(null);
     setChallengeTimer(null);
     setCurrentTask(null);
+    setGameMode(GameMode.Design);
   };
 
   const buyFuel = () => {
@@ -517,10 +569,10 @@ function App() {
 
     if (!carryingPallet) {
       // Pick up logic
-      if (tile.buildingType === BuildingType.Pallet && level === 0) {
+      if ((tile.buildingType === BuildingType.Floor || tile.buildingType === BuildingType.LoadingBay || tile.buildingType === BuildingType.None) && pallets[0] && level === 0) {
         setCarryingPallet(true);
         const newGrid = currentGrid.map(row => [...row]);
-        newGrid[tileY][tileX] = { ...tile, buildingType: BuildingType.Floor, pallets: [false, false, false] };
+        newGrid[tileY][tileX] = { ...tile, pallets: [false, false, false] };
         setGrid(newGrid);
         playPickSound();
         addNewsItem(tMsg.palletPickedFloor, 'neutral');
@@ -540,15 +592,73 @@ function App() {
       }
     } else {
       // Drop off logic
-      if ((tile.buildingType === BuildingType.Floor || tile.buildingType === BuildingType.None) && level === 0) {
+      if ((tile.buildingType === BuildingType.Floor || tile.buildingType === BuildingType.LoadingBay || tile.buildingType === BuildingType.None) && !pallets[0] && level === 0) {
+        // Check if this floor tile is an inward tile for a CrossDocking bay
+        const adjacentCrossDocking = [
+          { x: tileX, y: tileY - 1 },
+          { x: tileX, y: tileY + 1 },
+          { x: tileX - 1, y: tileY },
+          { x: tileX + 1, y: tileY }
+        ].find(pos => {
+          const adjTile = currentGrid[pos.y]?.[pos.x];
+          if (adjTile && adjTile.buildingType === BuildingType.CrossDocking) {
+            const inward = getInwardTile(pos.x, pos.y, GRID_SIZE);
+            return inward && inward.x === tileX && inward.y === tileY;
+          }
+          return false;
+        });
+
+        if (adjacentCrossDocking) {
+          // Dispatch logic
+          setCarryingPallet(false);
+          setStats(prev => ({ ...prev, score: prev.score + 100, money: prev.money + 50 }));
+          playDropSound();
+          setDropEffect({ x: tileX, y: tileY, id: Date.now() });
+          addNewsItem(tMsg.palletDispatched, 'positive');
+
+          // Trigger outbound bay animation
+          const truckId = Date.now();
+          setActiveBays(prev => [...prev, { id: truckId, x: adjacentCrossDocking.x, y: adjacentCrossDocking.y, type: 'outbound', phase: 'arriving' }]);
+          
+          setTimeout(() => {
+            setActiveBays(current => current.map(b => b.id === truckId ? { ...b, phase: 'loading' } : b));
+            setTimeout(() => {
+              setActiveBays(current => current.map(b => b.id === truckId ? { ...b, phase: 'leaving' } : b));
+              setTimeout(() => {
+                setActiveBays(current => current.filter(b => b.id !== truckId));
+              }, 2000);
+            }, 2000);
+          }, 2000);
+
+          if (currentTask && currentTask.text.includes("Dispatch")) {
+            setCurrentTask(prev => {
+              if (!prev) return null;
+              const next = { ...prev, current: prev.current + 1 };
+              if (next.current >= next.target) {
+                if (activeChallenge) {
+                  completeChallenge(activeChallenge, activeChallenge.baseScore + (challengeTimer || 0) * 10);
+                } else {
+                  addNewsItem(tMsg.taskCompleted, 'positive', 'Controller');
+                  setStats(s => ({ ...s, money: s.money + 500, score: s.score + 200 }));
+                }
+                return null;
+              }
+              return next;
+            });
+          }
+          return; // Skip normal floor drop
+        }
+
         setCarryingPallet(false);
         const newGrid = currentGrid.map(row => [...row]);
-        newGrid[tileY][tileX] = { ...tile, buildingType: BuildingType.Pallet, pallets: [true, false, false] };
+        newGrid[tileY][tileX] = { ...tile, pallets: [true, false, false] };
         setGrid(newGrid);
         setStats(prev => ({ ...prev, score: prev.score + 10 }));
         playDropSound();
         setDropEffect({ x: tileX, y: tileY, id: Date.now() });
         addNewsItem(tMsg.palletDroppedFloor, 'neutral');
+      } else if (tile.buildingType === BuildingType.CrossDocking && level === 0) {
+        addNewsItem(tMsg.incorrectPlacement.replace('{building}', 'Dispatch Bay'), 'negative');
       } else if (tile.buildingType === BuildingType.HeavyRack && !pallets[level]) {
         setCarryingPallet(false);
         const newGrid = currentGrid.map(row => [...row]);
@@ -623,6 +733,7 @@ function App() {
         setGrid={setGrid}
         addNewsItem={addNewsItem}
         dropEffect={dropEffect}
+        activeBays={activeBays}
       />
       
       {!gameStarted && (

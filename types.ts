@@ -47,6 +47,7 @@ export interface WarehouseStats {
   fuel: number;
   efficiency: number;
   day: number;
+  time: number; // 0 to 24 (hours)
   score: number;
 }
 
@@ -56,6 +57,14 @@ export interface NewsItem {
   type: 'positive' | 'negative' | 'neutral' | 'mission';
   sender?: 'Controller' | 'System';
 }
+
+export type ActiveBay = {
+  id: number;
+  x: number;
+  y: number;
+  type: 'inbound' | 'outbound';
+  phase: 'arriving' | 'unloading' | 'leaving' | 'waiting' | 'loading';
+};
 
 export interface Challenge {
   id: string;

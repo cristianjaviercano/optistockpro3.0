@@ -52,9 +52,10 @@ export const getPrebuiltGrid = (): TileData[][] => {
     for (let x = 0; x < GRID_SIZE; x++) {
       let type = BuildingType.Floor;
       if (x === 0 || x === GRID_SIZE - 1 || y === 0 || y === GRID_SIZE - 1) type = BuildingType.None;
-      if (y === 1 && (x === 3 || x === 7 || x === 11)) type = BuildingType.LoadingBay;
-      if (y >= 4 && y <= 10 && (x === 3 || x === 4 || x === 7 || x === 8 || x === 11 || x === 12)) type = BuildingType.HeavyRack;
-      if (x === 13 && y === 13) type = BuildingType.ForkliftStation;
+      // Level 1: Very simple. 1 loading bay, 1 small rack.
+      if (y === 1 && x === 7) type = BuildingType.LoadingBay;
+      if (y >= 5 && y <= 7 && x === 7) type = BuildingType.HeavyRack;
+      if (x === 7 && y === 10) type = BuildingType.ForkliftStation;
       row.push({ x, y, buildingType: type, pallets: [false, false, false] });
     }
     grid.push(row);
@@ -69,12 +70,10 @@ export const getPrebuiltGrid2 = (): TileData[][] => {
     for (let x = 0; x < GRID_SIZE; x++) {
       let type = BuildingType.Floor;
       if (x === 0 || x === GRID_SIZE - 1 || y === 0 || y === GRID_SIZE - 1) type = BuildingType.None;
-      // High density: many racks, small aisles
-      if (y === 1 && (x === 2 || x === 12)) type = BuildingType.LoadingBay;
-      if (y >= 3 && y <= 12 && (y % 4 !== 0) && (x === 2 || x === 5 || x === 8 || x === 11)) {
-        type = BuildingType.HeavyRack;
-      }
-      if (x === 1 && y === 13) type = BuildingType.ForkliftStation;
+      // Level 2: 2 loading bays, 2 racks
+      if (y === 1 && (x === 4 || x === 10)) type = BuildingType.LoadingBay;
+      if (y >= 5 && y <= 9 && (x === 4 || x === 10)) type = BuildingType.HeavyRack;
+      if (x === 7 && y === 12) type = BuildingType.ForkliftStation;
       row.push({ x, y, buildingType: type, pallets: [false, false, false] });
     }
     grid.push(row);
@@ -82,32 +81,48 @@ export const getPrebuiltGrid2 = (): TileData[][] => {
   return grid;
 };
 
+export const getInwardTile = (x: number, y: number, gridSize: number) => {
+  if (y === 1) return { x, y: 2 };
+  if (y === gridSize - 2) return { x, y: gridSize - 3 };
+  if (x === 1) return { x: 2, y };
+  if (x === gridSize - 2) return { x: gridSize - 3, y };
+  return { x, y: y + 1 };
+};
+
+export const getBayRotation = (x: number, y: number, gridSize: number) => {
+  if (y === 1) return 0;
+  if (y === gridSize - 2) return Math.PI;
+  if (x === 1) return -Math.PI / 2;
+  if (x === gridSize - 2) return Math.PI / 2;
+  return 0;
+};
+
 export const CHALLENGES: Challenge[] = [
   {
     id: 'slot1_basic',
     slotId: 1,
-    title: 'Inbound Logistics 101',
-    description: 'Move 3 pallets from the Loading Bay to the Heavy Racks. Focus on safe driving and proper fork height adjustment.',
-    targetPallets: 3,
-    timeLimit: 300,
+    title: 'Level 1: Basic Operations',
+    description: 'Receive 1 pallet from the Receiving Bay and dispatch it via the Dispatch Bay.',
+    targetPallets: 1,
+    timeLimit: 120,
     baseScore: 1000
   },
   {
     id: 'slot2_density',
     slotId: 2,
-    title: 'High Density Storage',
-    description: 'Navigate tight aisles to store 5 pallets. Precision is key. Avoid unnecessary movements to save fuel.',
-    targetPallets: 5,
-    timeLimit: 400,
+    title: 'Level 2: Dual Bays',
+    description: 'Manage incoming pallets and dispatch 3 pallets efficiently.',
+    targetPallets: 3,
+    timeLimit: 240,
     baseScore: 2500
   },
   {
     id: 'slot3_speed',
     slotId: 3,
-    title: 'Cross-Docking Rush',
-    description: 'Move 8 pallets quickly. Time is money. Optimize your routes between the Loading Bay and storage.',
-    targetPallets: 8,
-    timeLimit: 200,
+    title: 'Level 3: Full Warehouse',
+    description: 'A busy day! Dispatch 5 pallets before time runs out.',
+    targetPallets: 5,
+    timeLimit: 300,
     baseScore: 5000
   }
 ];
@@ -119,12 +134,10 @@ export const getPrebuiltGrid3 = (): TileData[][] => {
     for (let x = 0; x < GRID_SIZE; x++) {
       let type = BuildingType.Floor;
       if (x === 0 || x === GRID_SIZE - 1 || y === 0 || y === GRID_SIZE - 1) type = BuildingType.None;
-      // Fast throughput: many loading bays, cross docking
-      if (y === 1 && (x >= 2 && x <= 12 && x % 2 === 0)) type = BuildingType.LoadingBay;
-      if (y === 13 && (x >= 2 && x <= 12 && x % 2 === 0)) type = BuildingType.LoadingBay;
-      if (y >= 5 && y <= 9 && x >= 4 && x <= 10) type = BuildingType.CrossDocking;
-      if (y >= 4 && y <= 10 && (x === 2 || x === 12)) type = BuildingType.CantileverRack;
-      if (x === 1 && y === 7) type = BuildingType.ForkliftStation;
+      // Level 3: Multiple bays and racks
+      if (y === 1 && (x === 3 || x === 7 || x === 11)) type = BuildingType.LoadingBay;
+      if (y >= 4 && y <= 10 && (x === 3 || x === 4 || x === 7 || x === 8 || x === 11 || x === 12)) type = BuildingType.HeavyRack;
+      if (x === 7 && y === 13) type = BuildingType.ForkliftStation;
       row.push({ x, y, buildingType: type, pallets: [false, false, false] });
     }
     grid.push(row);
@@ -172,9 +185,9 @@ export const BUILDINGS: Record<BuildingType, BuildingConfig> = {
   [BuildingType.LoadingBay]: {
     type: BuildingType.LoadingBay,
     cost: 500,
-    name: 'Loading Bay',
-    description: 'Incoming goods',
-    color: '#10b981', // emerald-500
+    name: 'Receiving Bay',
+    description: 'Inbound goods',
+    color: '#eab308', // yellow-500
     incomeGen: 50,
     fuelConsumption: 0,
   },
@@ -208,9 +221,9 @@ export const BUILDINGS: Record<BuildingType, BuildingConfig> = {
   [BuildingType.CrossDocking]: {
     type: BuildingType.CrossDocking,
     cost: 400,
-    name: 'Cross-Docking',
-    description: 'Fast throughput',
-    color: '#8b5cf6', // violet-500
+    name: 'Dispatch Bay',
+    description: 'Outbound goods',
+    color: '#3b82f6', // blue-500
     incomeGen: 80,
     fuelConsumption: 0,
   },

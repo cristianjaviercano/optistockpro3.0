@@ -30,7 +30,12 @@ import {
   Timer,
   Target,
   Radio,
-  Star
+  Star,
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  Hand
 } from 'lucide-react';
 
 interface UIOverlayProps {
@@ -170,6 +175,10 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
   const newsRef = useRef<HTMLDivElement>(null);
   const t = translations[language].ui;
 
+  const simulateKey = (key: string, isDown: boolean) => {
+    window.dispatchEvent(new KeyboardEvent(isDown ? 'keydown' : 'keyup', { key }));
+  };
+
   useEffect(() => {
     if (newsRef.current) {
       newsRef.current.scrollTop = newsRef.current.scrollHeight;
@@ -304,8 +313,8 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
             color="bg-purple-500" 
           />
           <StatCard 
-            label={t.day} 
-            value={gameMode === GameMode.Tutorial ? t.learning : stats.day} 
+            label={gameMode === GameMode.Tutorial ? t.learning : `${t.day} ${stats.day}`} 
+            value={gameMode === GameMode.Tutorial ? "∞" : `${Math.floor(stats.time).toString().padStart(2, '0')}:${Math.floor((stats.time % 1) * 60).toString().padStart(2, '0')}`} 
             icon={Calendar} 
             color="bg-slate-500" 
           />
@@ -502,7 +511,13 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
                     })}
                   </div>
                 </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
 
+          <AnimatePresence>
+            {(gameMode === GameMode.Design || gameMode === GameMode.Tutorial) && (
+              <div className="flex flex-col gap-2">
                 <motion.div 
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -583,10 +598,69 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
         </div>
       </div>
       
-      {/* Footer */}
+      {/* Footer & Mobile Controls */}
       <div className="absolute bottom-1 right-4 text-[9px] text-slate-500 font-mono uppercase tracking-widest">
         Optistock Pro v1.0.4 // System Ready
       </div>
+
+      {/* Mobile Controls */}
+      {(gameMode === GameMode.Forklift || gameMode === GameMode.Tutorial) && (
+        <div className="md:hidden absolute bottom-4 left-4 right-4 flex justify-between items-end pointer-events-auto">
+          {/* D-Pad */}
+          <div className="grid grid-cols-3 gap-2 w-32 h-32 opacity-70">
+            <div />
+            <button 
+              onPointerDown={() => simulateKey('w', true)} onPointerUp={() => simulateKey('w', false)} onPointerLeave={() => simulateKey('w', false)}
+              className="bg-slate-800/80 border border-slate-600 rounded-lg flex items-center justify-center active:bg-slate-600"
+            >
+              <ArrowUp className="w-6 h-6 text-white" />
+            </button>
+            <div />
+            <button 
+              onPointerDown={() => simulateKey('a', true)} onPointerUp={() => simulateKey('a', false)} onPointerLeave={() => simulateKey('a', false)}
+              className="bg-slate-800/80 border border-slate-600 rounded-lg flex items-center justify-center active:bg-slate-600"
+            >
+              <ArrowLeft className="w-6 h-6 text-white" />
+            </button>
+            <button 
+              onPointerDown={() => simulateKey('s', true)} onPointerUp={() => simulateKey('s', false)} onPointerLeave={() => simulateKey('s', false)}
+              className="bg-slate-800/80 border border-slate-600 rounded-lg flex items-center justify-center active:bg-slate-600"
+            >
+              <ArrowDown className="w-6 h-6 text-white" />
+            </button>
+            <button 
+              onPointerDown={() => simulateKey('d', true)} onPointerUp={() => simulateKey('d', false)} onPointerLeave={() => simulateKey('d', false)}
+              className="bg-slate-800/80 border border-slate-600 rounded-lg flex items-center justify-center active:bg-slate-600"
+            >
+              <ArrowRight className="w-6 h-6 text-white" />
+            </button>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-col gap-2 opacity-70">
+            <div className="flex gap-2">
+              <button 
+                onPointerDown={() => simulateKey('q', true)} onPointerUp={() => simulateKey('q', false)} onPointerLeave={() => simulateKey('q', false)}
+                className="w-12 h-12 bg-slate-800/80 border border-slate-600 rounded-full flex items-center justify-center active:bg-slate-600"
+              >
+                <ChevronUp className="w-6 h-6 text-white" />
+              </button>
+              <button 
+                onPointerDown={() => simulateKey('e', true)} onPointerUp={() => simulateKey('e', false)} onPointerLeave={() => simulateKey('e', false)}
+                className="w-12 h-12 bg-slate-800/80 border border-slate-600 rounded-full flex items-center justify-center active:bg-slate-600"
+              >
+                <ChevronDown className="w-6 h-6 text-white" />
+              </button>
+            </div>
+            <button 
+              onPointerDown={() => simulateKey(' ', true)} onPointerUp={() => simulateKey(' ', false)} onPointerLeave={() => simulateKey(' ', false)}
+              className="w-full h-16 bg-blue-600/80 border border-blue-400 rounded-xl flex items-center justify-center active:bg-blue-500"
+            >
+              <Hand className="w-8 h-8 text-white" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

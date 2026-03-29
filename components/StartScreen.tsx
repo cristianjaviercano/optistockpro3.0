@@ -265,17 +265,10 @@ const StartScreen: React.FC<StartScreenProps> = ({ onStart, saveSlots, userProgr
                         >
                           <button 
                             onClick={(e) => { e.stopPropagation(); onStart(slot.id, GameMode.Design); }}
-                            className="flex-1 py-4 bg-slate-700 hover:bg-slate-600 text-white rounded-2xl font-black text-xs flex items-center justify-center gap-2 transition-all shadow-lg"
+                            className="flex-1 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-xs flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-500/20"
                           >
                             <ShieldCheck className="w-4 h-4" />
-                            {t.design}
-                          </button>
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); onStart(slot.id, GameMode.Forklift); }}
-                            className="flex-1 py-4 bg-yellow-500 hover:bg-yellow-400 text-slate-900 rounded-2xl font-black text-xs flex items-center justify-center gap-2 transition-all shadow-lg shadow-yellow-500/20"
-                          >
-                            <Zap className="w-4 h-4" />
-                            {t.shift}
+                            {t.enterFacility || "ENTER FACILITY"}
                           </button>
                         </motion.div>
                       )}
