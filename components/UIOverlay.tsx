@@ -35,7 +35,8 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowRight,
-  Hand
+  Hand,
+  Gamepad2
 } from 'lucide-react';
 
 interface UIOverlayProps {
@@ -135,13 +136,13 @@ const ToolButton: React.FC<{
 };
 
 const StatCard = ({ label, value, icon: Icon, color }: { label: string, value: string | number, icon: any, color: string }) => (
-  <div className="bg-slate-900/90 text-white p-1.5 md:p-2 rounded-lg border border-slate-700 shadow-xl backdrop-blur-md flex items-center gap-2 min-w-[90px] md:min-w-[110px]">
-    <div className={`p-1.5 rounded-md ${color} bg-opacity-20`}>
-      <Icon className={`w-3.5 h-3.5 md:w-4 md:h-4 ${color.replace('bg-', 'text-')}`} />
+  <div className="bg-slate-900/90 text-white p-1 md:p-1.5 rounded-lg border border-slate-700 shadow-xl backdrop-blur-md flex items-center gap-1.5 min-w-[80px] md:min-w-[100px]">
+    <div className={`p-1 rounded-md ${color} bg-opacity-20`}>
+      <Icon className={`w-3 h-3 md:w-3.5 md:h-3.5 ${color.replace('bg-', 'text-')}`} />
     </div>
     <div className="flex flex-col">
-      <span className="text-[7px] md:text-[8px] text-slate-400 uppercase font-bold tracking-widest leading-none mb-0.5">{label}</span>
-      <span className="text-xs md:text-sm font-black font-mono leading-none">{value}</span>
+      <span className="text-[6px] md:text-[7px] text-slate-400 uppercase font-black tracking-widest leading-none mb-0.5">{label}</span>
+      <span className="text-[10px] md:text-xs font-black font-mono leading-none">{value}</span>
     </div>
   </div>
 );
@@ -430,44 +431,94 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
         {/* Left: Tools & News */}
         <div className="flex flex-col gap-4">
           <div className="flex gap-2">
-            {/* Forklift Controls */}
-          {(gameMode === GameMode.Forklift || gameMode === GameMode.Tutorial) && (
-            <div className="flex flex-col gap-2">
-              <div className="bg-slate-800/90 backdrop-blur-md p-4 rounded-2xl border border-white/10 shadow-2xl flex flex-col gap-3">
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-white/60 text-xs font-bold uppercase tracking-widest">{t.forksHeight}</span>
-                  <span className="bg-blue-500 text-white text-[10px] px-2 py-0.5 rounded-full font-black">LVL {forksLevel + 1}</span>
+            {/* Control Panel */}
+            {(gameMode === GameMode.Forklift || gameMode === GameMode.Tutorial) && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-slate-900/95 backdrop-blur-xl p-3 rounded-2xl border border-slate-700 shadow-2xl flex flex-col gap-3 min-w-[200px]"
+              >
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <div className="flex items-center gap-2">
+                    <Gamepad2 className="w-4 h-4 text-yellow-500" />
+                    <span className="text-white text-[10px] font-black uppercase tracking-widest">{t.controlPanel}</span>
+                  </div>
+                  <span className="bg-blue-500 text-white text-[8px] px-2 py-0.5 rounded-full font-black uppercase">LVL {forksLevel + 1}</span>
                 </div>
-                <div className="flex gap-2">
-                  <button 
-                    onClick={onForksUp}
-                    disabled={forksLevel >= 2}
-                    className="flex-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-30 text-white py-2 rounded-xl transition-all flex items-center justify-center gap-2 font-bold text-sm"
-                  >
-                    <ChevronUp className="w-4 h-4" /> {t.up}
-                  </button>
-                  <button 
-                    onClick={onForksDown}
-                    disabled={forksLevel <= 0}
-                    className="flex-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-30 text-white py-2 rounded-xl transition-all flex items-center justify-center gap-2 font-bold text-sm"
-                  >
-                    <ChevronDown className="w-4 h-4" /> DOWN
-                  </button>
+
+                <div className="flex gap-4 items-center justify-center">
+                  {/* D-Pad */}
+                  <div className="grid grid-cols-3 gap-1.5 w-24 h-24">
+                    <div />
+                    <button 
+                      onPointerDown={() => simulateKey('w', true)} onPointerUp={() => simulateKey('w', false)} onPointerLeave={() => simulateKey('w', false)}
+                      className="bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg flex items-center justify-center active:bg-slate-600 transition-colors"
+                    >
+                      <ArrowUp className="w-4 h-4 text-white" />
+                    </button>
+                    <div />
+                    <button 
+                      onPointerDown={() => simulateKey('a', true)} onPointerUp={() => simulateKey('a', false)} onPointerLeave={() => simulateKey('a', false)}
+                      className="bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg flex items-center justify-center active:bg-slate-600 transition-colors"
+                    >
+                      <ArrowLeft className="w-4 h-4 text-white" />
+                    </button>
+                    <button 
+                      onPointerDown={() => simulateKey('s', true)} onPointerUp={() => simulateKey('s', false)} onPointerLeave={() => simulateKey('s', false)}
+                      className="bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg flex items-center justify-center active:bg-slate-600 transition-colors"
+                    >
+                      <ArrowDown className="w-4 h-4 text-white" />
+                    </button>
+                    <button 
+                      onPointerDown={() => simulateKey('d', true)} onPointerUp={() => simulateKey('d', false)} onPointerLeave={() => simulateKey('d', false)}
+                      className="bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg flex items-center justify-center active:bg-slate-600 transition-colors"
+                    >
+                      <ArrowRight className="w-4 h-4 text-white" />
+                    </button>
+                  </div>
+
+                  {/* Vertical Controls */}
+                  <div className="flex flex-col gap-1.5 flex-1">
+                    <div className="flex gap-1.5">
+                      <button 
+                        onPointerDown={() => simulateKey('q', true)} onPointerUp={() => simulateKey('q', false)} onPointerLeave={() => simulateKey('q', false)}
+                        onClick={onForksUp}
+                        disabled={forksLevel >= 2}
+                        className="flex-1 h-10 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 border border-slate-600 rounded-lg flex items-center justify-center active:bg-slate-600 transition-colors"
+                      >
+                        <ChevronUp className="w-4 h-4 text-white" />
+                      </button>
+                      <button 
+                        onPointerDown={() => simulateKey('e', true)} onPointerUp={() => simulateKey('e', false)} onPointerLeave={() => simulateKey('e', false)}
+                        onClick={onForksDown}
+                        disabled={forksLevel <= 0}
+                        className="flex-1 h-10 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 border border-slate-600 rounded-lg flex items-center justify-center active:bg-slate-600 transition-colors"
+                      >
+                        <ChevronDown className="w-4 h-4 text-white" />
+                      </button>
+                    </div>
+                    
+                    <button 
+                      onPointerDown={() => simulateKey(' ', true)} onPointerUp={() => simulateKey(' ', false)} onPointerLeave={() => simulateKey(' ', false)}
+                      className="w-full h-12 bg-blue-600 hover:bg-blue-500 border border-blue-400 rounded-lg flex items-center justify-center active:bg-blue-400 transition-colors shadow-lg shadow-blue-500/20"
+                    >
+                      <Hand className="w-5 h-5 text-white" />
+                    </button>
+
+                    {gameMode === GameMode.Forklift && (
+                      <button
+                        onClick={onBuyFuel}
+                        className="w-full h-8 bg-yellow-500 hover:bg-yellow-400 text-slate-900 rounded-lg font-black uppercase text-[8px] tracking-widest flex items-center justify-center gap-1 transition-colors"
+                      >
+                        <Fuel className="w-3 h-3" />
+                        {t.refuel}
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <div className="text-[10px] text-white/40 text-center font-medium">{t.useKeys}</div>
-              </div>
-              
-              {gameMode === GameMode.Forklift && (
-                <button
-                  onClick={onBuyFuel}
-                  className="bg-blue-600 text-white px-6 py-3 rounded-xl font-black uppercase tracking-tighter text-lg hover:bg-blue-500 transition-all shadow-xl flex items-center gap-2"
-                >
-                  <Fuel className="w-5 h-5" />
-                  {t.refuel}
-                </button>
-              )}
-            </div>
-          )}
+                <div className="text-[7px] text-slate-500 text-center font-bold uppercase tracking-widest opacity-50">{t.useKeys}</div>
+              </motion.div>
+            )}
           </div>
 
           <AnimatePresence>
@@ -599,68 +650,10 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
       </div>
       
       {/* Footer & Mobile Controls */}
-      <div className="absolute bottom-1 right-4 text-[9px] text-slate-500 font-mono uppercase tracking-widest">
-        Optistock Pro v1.0.4 // System Ready
+      <div className="absolute bottom-1 right-4 text-[8px] text-slate-500 font-mono uppercase tracking-widest text-right leading-tight opacity-50">
+        Optistock Pro v1.0.5 // System Ready<br />
+        By. OWLS solutions, Ing. Cristian Javier Cano M (MsC)
       </div>
-
-      {/* Mobile Controls */}
-      {(gameMode === GameMode.Forklift || gameMode === GameMode.Tutorial) && (
-        <div className="md:hidden absolute bottom-4 left-4 right-4 flex justify-between items-end pointer-events-auto">
-          {/* D-Pad */}
-          <div className="grid grid-cols-3 gap-2 w-32 h-32 opacity-70">
-            <div />
-            <button 
-              onPointerDown={() => simulateKey('w', true)} onPointerUp={() => simulateKey('w', false)} onPointerLeave={() => simulateKey('w', false)}
-              className="bg-slate-800/80 border border-slate-600 rounded-lg flex items-center justify-center active:bg-slate-600"
-            >
-              <ArrowUp className="w-6 h-6 text-white" />
-            </button>
-            <div />
-            <button 
-              onPointerDown={() => simulateKey('a', true)} onPointerUp={() => simulateKey('a', false)} onPointerLeave={() => simulateKey('a', false)}
-              className="bg-slate-800/80 border border-slate-600 rounded-lg flex items-center justify-center active:bg-slate-600"
-            >
-              <ArrowLeft className="w-6 h-6 text-white" />
-            </button>
-            <button 
-              onPointerDown={() => simulateKey('s', true)} onPointerUp={() => simulateKey('s', false)} onPointerLeave={() => simulateKey('s', false)}
-              className="bg-slate-800/80 border border-slate-600 rounded-lg flex items-center justify-center active:bg-slate-600"
-            >
-              <ArrowDown className="w-6 h-6 text-white" />
-            </button>
-            <button 
-              onPointerDown={() => simulateKey('d', true)} onPointerUp={() => simulateKey('d', false)} onPointerLeave={() => simulateKey('d', false)}
-              className="bg-slate-800/80 border border-slate-600 rounded-lg flex items-center justify-center active:bg-slate-600"
-            >
-              <ArrowRight className="w-6 h-6 text-white" />
-            </button>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex flex-col gap-2 opacity-70">
-            <div className="flex gap-2">
-              <button 
-                onPointerDown={() => simulateKey('q', true)} onPointerUp={() => simulateKey('q', false)} onPointerLeave={() => simulateKey('q', false)}
-                className="w-12 h-12 bg-slate-800/80 border border-slate-600 rounded-full flex items-center justify-center active:bg-slate-600"
-              >
-                <ChevronUp className="w-6 h-6 text-white" />
-              </button>
-              <button 
-                onPointerDown={() => simulateKey('e', true)} onPointerUp={() => simulateKey('e', false)} onPointerLeave={() => simulateKey('e', false)}
-                className="w-12 h-12 bg-slate-800/80 border border-slate-600 rounded-full flex items-center justify-center active:bg-slate-600"
-              >
-                <ChevronDown className="w-6 h-6 text-white" />
-              </button>
-            </div>
-            <button 
-              onPointerDown={() => simulateKey(' ', true)} onPointerUp={() => simulateKey(' ', false)} onPointerLeave={() => simulateKey(' ', false)}
-              className="w-full h-16 bg-blue-600/80 border border-blue-400 rounded-xl flex items-center justify-center active:bg-blue-500"
-            >
-              <Hand className="w-8 h-8 text-white" />
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

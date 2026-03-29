@@ -119,11 +119,15 @@ function App() {
   const gridRef = useRef(grid);
   const statsRef = useRef(stats);
   const gameModeRef = useRef(gameMode);
+  const forkliftPosRef = useRef(forkliftPos);
+  const forkliftRotationRef = useRef(forkliftRotation);
 
   // Sync refs
   useEffect(() => { gridRef.current = grid; }, [grid]);
   useEffect(() => { statsRef.current = stats; }, [stats]);
   useEffect(() => { gameModeRef.current = gameMode; }, [gameMode]);
+  useEffect(() => { forkliftPosRef.current = forkliftPos; }, [forkliftPos]);
+  useEffect(() => { forkliftRotationRef.current = forkliftRotation; }, [forkliftRotation]);
 
   const addNewsItem = useCallback((text: string, type: 'positive' | 'negative' | 'neutral' | 'mission' = 'neutral', sender: 'Controller' | 'System' = 'System') => {
     setNewsFeed(prev => [...prev.slice(-12), { id: Date.now().toString() + Math.random(), text, type, sender }]);
@@ -359,7 +363,16 @@ function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        setSaveSlots(parsed);
+        // Merge with initial slots to ensure prebuilt levels are available if slots are empty
+        setSaveSlots(prev => {
+          return prev.map(initialSlot => {
+            const savedSlot = parsed.find((s: any) => s.id === initialSlot.id);
+            if (savedSlot && !savedSlot.isEmpty) {
+              return savedSlot;
+            }
+            return initialSlot;
+          });
+        });
       } catch (e) {
         console.error("Failed to load save slots", e);
       }
@@ -402,6 +415,15 @@ function App() {
 
     // Placement Logic
     if (currentTile.buildingType === BuildingType.None || currentTile.buildingType === BuildingType.Floor) {
+      // Special check for LoadingBay and CrossDocking: must be on edges
+      if (tool === BuildingType.LoadingBay || tool === BuildingType.CrossDocking) {
+        const isOnEdge = x === 0 || x === GRID_SIZE - 1 || y === 0 || y === GRID_SIZE - 1;
+        if (!isOnEdge) {
+          addNewsItem(translations[language].messages.bayOnEdge || "Bays must be placed on the warehouse edges!", 'negative');
+          return;
+        }
+      }
+
       if (currentStats.money >= buildingConfig.cost) {
         setStats(prev => ({ ...prev, money: prev.money - buildingConfig.cost }));
         const newGrid = currentGrid.map(row => [...row]);
@@ -545,8 +567,10 @@ function App() {
 
   const onForkliftAction = useCallback(() => {
     // Check tile in front of forklift
-    const frontX = forkliftPos.x + Math.sin(forkliftRotation) * 0.8;
-    const frontY = forkliftPos.y + Math.cos(forkliftRotation) * 0.8;
+    const currentPos = forkliftPosRef.current;
+    const currentRot = forkliftRotationRef.current;
+    const frontX = currentPos.x + Math.sin(currentRot) * 0.8;
+    const frontY = currentPos.y + Math.cos(currentRot) * 0.8;
     
     const tileX = Math.round(frontX);
     const tileY = Math.round(frontY);
@@ -702,7 +726,7 @@ function App() {
         addNewsItem(tMsg.cannotDrop, 'negative');
       }
     }
-  }, [forkliftPos, forkliftRotation, carryingPallet, addNewsItem, currentTask, forksLevel, playDropSound, playPickSound, tMsg, activeChallenge, challengeTimer]);
+  }, [carryingPallet, addNewsItem, currentTask, forksLevel, playDropSound, playPickSound, tMsg, activeChallenge, challengeTimer]);
 
   return (
     <div className="relative w-screen h-screen overflow-hidden selection:bg-transparent selection:text-transparent bg-slate-900">

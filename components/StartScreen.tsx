@@ -298,9 +298,9 @@ const StartScreen: React.FC<StartScreenProps> = ({ onStart, saveSlots, userProgr
               </div>
             </div>
             
-            <div className="flex items-center gap-2 opacity-30 grayscale">
-              <Truck className="w-6 h-6" />
-              <Package className="w-6 h-6" />
+            <div className="text-[10px] text-slate-500 font-bold opacity-50 text-right leading-tight">
+              By. OWLS solutions<br />
+              Ing. Cristian Javier Cano M (MsC)
             </div>
           </div>
         </div>
