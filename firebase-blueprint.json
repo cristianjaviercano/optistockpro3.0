@@ -1,0 +1,60 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Stores operator information and overall progress.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "displayName": { "type": "string", "description": "Operator name" },
+        "totalScore": { "type": "integer", "description": "Cumulative score across all challenges" },
+        "level": { "type": "integer", "description": "Operator experience level" },
+        "completedChallenges": { "type": "array", "items": { "type": "string" }, "description": "IDs of completed challenges" }
+      },
+      "required": ["uid", "displayName"]
+    },
+    "Challenge": {
+      "title": "Warehouse Challenge",
+      "description": "Defines a specific task for the operator.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique challenge ID" },
+        "slotId": { "type": "integer", "description": "Warehouse layout slot (1, 2, or 3)" },
+        "title": { "type": "string", "description": "Challenge name" },
+        "description": { "type": "string", "description": "Instructions for the operator" },
+        "targetPallets": { "type": "integer", "description": "Number of pallets to move" },
+        "timeLimit": { "type": "integer", "description": "Time limit in seconds" },
+        "baseScore": { "type": "integer", "description": "Points awarded for completion" }
+      },
+      "required": ["id", "slotId", "title", "description"]
+    },
+    "Run": {
+      "title": "Challenge Run",
+      "description": "Records the results of a completed challenge.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Operator UID" },
+        "challengeId": { "type": "string", "description": "Challenge ID" },
+        "score": { "type": "integer", "description": "Score achieved" },
+        "timeTaken": { "type": "integer", "description": "Time in seconds" },
+        "fuelUsed": { "type": "number", "description": "Fuel consumed" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "When the run was completed" }
+      },
+      "required": ["userId", "challengeId", "score", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Operator profiles"
+    },
+    "/challenges/{challengeId}": {
+      "schema": "Challenge",
+      "description": "Definitions of available missions"
+    },
+    "/runs/{runId}": {
+      "schema": "Run",
+      "description": "History of challenge attempts"
+    }
+  }
+}
