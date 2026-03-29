@@ -135,13 +135,13 @@ const ToolButton: React.FC<{
 };
 
 const StatCard = ({ label, value, icon: Icon, color }: { label: string, value: string | number, icon: any, color: string }) => (
-  <div className="bg-slate-900/90 text-white p-2 md:p-3 rounded-xl border border-slate-700 shadow-xl backdrop-blur-md flex items-center gap-3 min-w-[120px]">
-    <div className={`p-2 rounded-lg ${color} bg-opacity-20`}>
-      <Icon className={`w-4 h-4 md:w-5 md:h-5 ${color.replace('bg-', 'text-')}`} />
+  <div className="bg-slate-900/90 text-white p-1.5 md:p-2 rounded-lg border border-slate-700 shadow-xl backdrop-blur-md flex items-center gap-2 min-w-[90px] md:min-w-[110px]">
+    <div className={`p-1.5 rounded-md ${color} bg-opacity-20`}>
+      <Icon className={`w-3.5 h-3.5 md:w-4 md:h-4 ${color.replace('bg-', 'text-')}`} />
     </div>
     <div className="flex flex-col">
-      <span className="text-[8px] md:text-[10px] text-slate-400 uppercase font-bold tracking-widest">{label}</span>
-      <span className="text-sm md:text-lg font-black font-mono">{value}</span>
+      <span className="text-[7px] md:text-[8px] text-slate-400 uppercase font-bold tracking-widest leading-none mb-0.5">{label}</span>
+      <span className="text-xs md:text-sm font-black font-mono leading-none">{value}</span>
     </div>
   </div>
 );
@@ -212,13 +212,13 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
 
         {/* Logo & Actions */}
         <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-3 bg-slate-900/80 p-2 pr-6 rounded-xl border border-slate-700 backdrop-blur-md">
-            <div className="p-2 bg-yellow-500 rounded-lg">
-              <Package className="w-5 h-5 text-slate-900" />
+          <div className="flex items-center gap-2 bg-slate-900/80 p-1.5 pr-4 rounded-lg border border-slate-700 backdrop-blur-md">
+            <div className="p-1.5 bg-yellow-500 rounded-md">
+              <Package className="w-4 h-4 text-slate-900" />
             </div>
             <div>
-              <h1 className="text-xl font-black tracking-tighter text-white leading-none">OPTISTOCK <span className="text-yellow-500">PRO</span></h1>
-              <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">{t.wms}</p>
+              <h1 className="text-lg font-black tracking-tighter text-white leading-none">OPTISTOCK <span className="text-yellow-500">PRO</span></h1>
+              <p className="text-[8px] text-slate-400 uppercase font-bold tracking-widest">{t.wms}</p>
             </div>
           </div>
           
@@ -278,13 +278,13 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
         {/* Stats Row */}
         <div className="flex flex-wrap gap-2 md:gap-4">
           {userProgress && (
-            <div className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white p-2 md:p-3 rounded-xl border border-blue-400 shadow-xl backdrop-blur-md flex items-center gap-3 min-w-[120px]">
-              <div className="p-2 rounded-lg bg-white/20">
-                <Trophy className="w-4 h-4 md:w-5 md:h-5 text-yellow-300" />
+            <div className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white p-1.5 md:p-2 rounded-lg border border-blue-400 shadow-xl backdrop-blur-md flex items-center gap-2 min-w-[90px] md:min-w-[110px]">
+              <div className="p-1.5 rounded-md bg-white/20">
+                <Trophy className="w-3.5 h-3.5 md:w-4 md:h-4 text-yellow-300" />
               </div>
               <div className="flex flex-col">
-                <span className="text-[8px] md:text-[10px] text-blue-100 uppercase font-bold tracking-widest">{t.operatorLvl}</span>
-                <span className="text-sm md:text-lg font-black font-mono">{userProgress.level} <span className="text-[10px] opacity-70">({userProgress.totalScore} XP)</span></span>
+                <span className="text-[7px] md:text-[8px] text-blue-100 uppercase font-bold tracking-widest leading-none mb-0.5">{t.operatorLvl}</span>
+                <span className="text-xs md:text-sm font-black font-mono leading-none">{userProgress.level} <span className="text-[8px] opacity-70">({userProgress.totalScore} XP)</span></span>
               </div>
             </div>
           )}

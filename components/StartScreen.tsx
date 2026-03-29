@@ -4,7 +4,7 @@
 */
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Package, Truck, Play, ShieldCheck, Zap, Save, BookOpen, LogIn, LogOut, Trophy, Star, Target, Mail, Lock, User as UserIcon, ArrowRight, Fingerprint } from 'lucide-react';
+import { Package, Truck, Play, ShieldCheck, Zap, Save, BookOpen, LogIn, LogOut, Trophy, Star, Target, Mail, Lock, User as UserIcon, ArrowRight, Fingerprint, Hammer } from 'lucide-react';
 import { SaveSlot, GameMode, UserProgress, Language } from '../types';
 import { translations } from '../locales';
 
@@ -40,12 +40,13 @@ const StartScreen: React.FC<StartScreenProps> = ({ onStart, saveSlots, userProgr
   };
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center z-50 text-white font-sans p-6 bg-slate-950/80 backdrop-blur-xl transition-all duration-1000 overflow-y-auto">
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.9, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="max-w-5xl w-full bg-slate-900/95 p-8 md:p-12 rounded-[2rem] border border-slate-700/50 shadow-[0_0_100px_rgba(0,0,0,0.8)] backdrop-blur-2xl relative overflow-hidden"
-      >
+    <div className="absolute inset-0 z-50 text-white font-sans bg-slate-950/80 backdrop-blur-xl transition-all duration-1000 overflow-y-auto overflow-x-hidden custom-scrollbar">
+      <div className="min-h-full w-full flex flex-col items-center justify-start md:justify-center p-4 md:p-12">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          className="max-w-5xl w-full bg-slate-900/95 p-6 md:p-12 rounded-[1.5rem] md:rounded-[2rem] border border-slate-700/50 shadow-[0_0_100px_rgba(0,0,0,0.8)] backdrop-blur-2xl relative overflow-hidden my-auto"
+        >
         {/* Decorative elements */}
         <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-transparent via-yellow-500 to-transparent opacity-40"></div>
         <div className="absolute -top-24 -right-24 w-64 h-64 bg-yellow-500/10 rounded-full blur-3xl"></div>
@@ -261,14 +262,21 @@ const StartScreen: React.FC<StartScreenProps> = ({ onStart, saveSlots, userProgr
                         <motion.div 
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="flex gap-3 mt-6"
+                          className="flex flex-col sm:flex-row gap-3 mt-6"
                         >
                           <button 
                             onClick={(e) => { e.stopPropagation(); onStart(slot.id, GameMode.Design); }}
-                            className="flex-1 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-xs flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-500/20"
+                            className="flex-1 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-xs flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-500/20 uppercase tracking-widest"
                           >
-                            <ShieldCheck className="w-4 h-4" />
-                            {t.enterFacility || "ENTER FACILITY"}
+                            <Hammer className="w-4 h-4" />
+                            {t.design}
+                          </button>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); onStart(slot.id, GameMode.Forklift); }}
+                            className="flex-1 py-4 bg-yellow-500 hover:bg-yellow-400 text-slate-900 rounded-2xl font-black text-xs flex items-center justify-center gap-2 transition-all shadow-lg shadow-yellow-500/20 uppercase tracking-widest"
+                          >
+                            <Play className="w-4 h-4" />
+                            {t.shift}
                           </button>
                         </motion.div>
                       )}
@@ -298,7 +306,8 @@ const StartScreen: React.FC<StartScreenProps> = ({ onStart, saveSlots, userProgr
         </div>
       </motion.div>
     </div>
-  );
+  </div>
+);
 };
 
 export default StartScreen;

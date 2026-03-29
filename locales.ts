@@ -67,9 +67,7 @@ export const translations = {
       startShift: "Start Shift",
       intercom: "INTERCOM",
       waiting: "Waiting for next event...",
-      mustBeOnEdge: "Bays must be placed on the edge of the warehouse (1 tile from the border).",
-      palletDispatched: "Pallet dispatched successfully!",
-      bayBlocked: "Delivery failed: Bay blocked!"
+      mustBeOnEdge: "Bays must be placed on the edge of the warehouse (1 tile from the border)."
     },
     buildings: {
       bulldoze: "Bulldoze",
@@ -146,7 +144,10 @@ export const translations = {
       taskCompletedBonus: "Task Completed: Bonus awarded!",
       cannotDrop: "Cannot drop pallet here. Position occupied or invalid level.",
       truckDelivery: "Truck delivery completed successfully.",
-      maintenanceReq: "Maintenance required on Forklift Station."
+      maintenanceReq: "Maintenance required on Forklift Station.",
+      palletDispatched: "Pallet dispatched successfully!",
+      bayBlocked: "Delivery failed: Bay blocked!",
+      truckArriving: "Truck arriving at Receiving Bay..."
     }
   },
   es: {
@@ -215,9 +216,7 @@ export const translations = {
       startShift: "Iniciar Turno",
       intercom: "INTERCOMUNICADOR",
       waiting: "Esperando el próximo evento...",
-      mustBeOnEdge: "Las bahías deben colocarse en el borde del almacén (a 1 cuadro del límite).",
-      palletDispatched: "¡Palet despachado con éxito!",
-      bayBlocked: "Entrega fallida: ¡Bahía bloqueada!"
+      mustBeOnEdge: "Las bahías deben colocarse en el borde del almacén (a 1 cuadro del límite)."
     },
     buildings: {
       bulldoze: "Demoler",
@@ -294,7 +293,10 @@ export const translations = {
       taskCompletedBonus: "Tarea Completada: ¡Bono otorgado!",
       cannotDrop: "No se puede soltar el palet aquí. Posición ocupada o nivel inválido.",
       truckDelivery: "Entrega del camión completada exitosamente.",
-      maintenanceReq: "Mantenimiento requerido en la Estación de Montacargas."
+      maintenanceReq: "Mantenimiento requerido en la Estación de Montacargas.",
+      palletDispatched: "¡Palet despachado con éxito!",
+      bayBlocked: "Entrega fallida: ¡Bahía bloqueada!",
+      truckArriving: "Camión llegando a la Bahía de Recepción..."
     }
   }
 };

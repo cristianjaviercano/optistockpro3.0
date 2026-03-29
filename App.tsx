@@ -35,9 +35,9 @@ const INITIAL_STATS: WarehouseStats = {
 
 function App() {
   // --- Game State ---
-  const [gameStarted, setGameStarted] = useState(true);
-  const [gameMode, setGameMode] = useState<GameMode>(GameMode.Tutorial);
-  const [currentSlotId, setCurrentSlotId] = useState<number | null>(1);
+  const [gameStarted, setGameStarted] = useState(false);
+  const [gameMode, setGameMode] = useState<GameMode>(GameMode.Design);
+  const [currentSlotId, setCurrentSlotId] = useState<number | null>(null);
   const [tutorialStep, setTutorialStep] = useState<number>(0);
 
   const [grid, setGrid] = useState<Grid>(createInitialGrid);
@@ -56,13 +56,7 @@ function App() {
   
   // --- User & Progress State ---
   const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [userProgress, setUserProgress] = useState<UserProgress | null>({
-    uid: 'local',
-    displayName: 'Operator',
-    totalScore: 0,
-    level: 1,
-    completedChallenges: []
-  });
+  const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
   const [activeChallenge, setActiveChallenge] = useState<Challenge | null>(null);
   const [challengeTimer, setChallengeTimer] = useState<number | null>(null);
   const [language, setLanguage] = useState<Language>('en');
@@ -283,7 +277,12 @@ function App() {
 
       // Spawn pallets at Receiving Bays
       if (gameModeRef.current === GameMode.Forklift && Math.random() > 0.8) {
-        if (activeChallenge && palletsSpawned < activeChallenge.targetPallets) {
+        // Limit pallets if in challenge, otherwise allow up to a reasonable amount
+        const canSpawn = activeChallenge 
+          ? palletsSpawned < activeChallenge.targetPallets 
+          : gridRef.current.flat().filter(t => t.pallets?.[0]).length < 20;
+
+        if (canSpawn) {
           const receivingBays = gridRef.current.flat().filter(t => t.buildingType === BuildingType.LoadingBay);
           if (receivingBays.length > 0) {
             const bay = receivingBays[Math.floor(Math.random() * receivingBays.length)];
@@ -295,8 +294,9 @@ function App() {
               const truckId = Date.now();
               const newBay: ActiveBay = { id: truckId, x: bay.x, y: bay.y, type: 'inbound', phase: 'arriving' };
               
-              addNewsItem(tMsg.truckDelivery, 'positive');
-              setPalletsSpawned(p => p + 1);
+              // Notify truck arrival
+              addNewsItem(translations[language].messages.truckArriving || "Truck arriving at Receiving Bay...", 'neutral');
+              if (activeChallenge) setPalletsSpawned(p => p + 1);
 
               // Sequence: arriving -> unloading -> leaving -> remove
               setTimeout(() => {
@@ -306,10 +306,10 @@ function App() {
                 setTimeout(() => {
                   setGrid(gridPrev => {
                     const newGrid = gridPrev.map(row => [...row]);
-                    // Find adjacent floor tile
                     const inward = getInwardTile(bay.x, bay.y, GRID_SIZE);
                     if (inward && newGrid[inward.y][inward.x].buildingType === BuildingType.Floor && !newGrid[inward.y][inward.x].pallets?.[0]) {
                       newGrid[inward.y][inward.x] = { ...newGrid[inward.y][inward.x], pallets: [true, false, false] };
+                      addNewsItem(tMsg.truckDelivery, 'positive'); // Real delivery success message
                       addNewsItem(tMsg.newPallet, 'neutral');
                     } else {
                       addNewsItem(tMsg.bayBlocked, 'negative');
@@ -335,15 +335,6 @@ function App() {
         }
       }
 
-      if (Math.random() > 0.9) {
-        const events = [
-          { text: tMsg.truckDelivery, type: 'positive' },
-          { text: tMsg.maintenanceReq, type: 'negative' }
-        ];
-        const event = events[Math.floor(Math.random() * events.length)];
-        addNewsItem(event.text, event.type as any);
-      }
-      
       // Time progression
       setStats(prev => {
         let newTime = prev.time + (1 / 60); // 1 in-game hour = 60 real seconds (1 minute per hour)
