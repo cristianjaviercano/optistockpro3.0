@@ -5,10 +5,11 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { Canvas, useFrame, useThree, ThreeElements } from '@react-three/fiber';
 import { MapControls, Environment, SoftShadows, Instance, Instances, Float, useTexture, Outlines, OrthographicCamera } from '@react-three/drei';
+import type { MapControls as MapControlsImpl } from 'three-stdlib';
 import * as THREE from 'three';
 import { MathUtils } from 'three';
-import { Grid, BuildingType, TileData, GameMode } from '../types';
-import { GRID_SIZE, BUILDINGS } from '../constants';
+import { Grid, BuildingType, TileData, GameMode, ActiveBay } from '../types';
+import { GRID_SIZE, BUILDINGS, getBayRotation } from '../constants';
 
 declare global {
   namespace JSX {
@@ -351,6 +352,7 @@ interface IsoMapProps {
   setGrid: (grid: Grid | ((prev: Grid) => Grid)) => void;
   addNewsItem: (text: string, type?: 'positive' | 'negative' | 'neutral') => void;
   dropEffect: { x: number, y: number, id: number } | null;
+  activeBays?: ActiveBay[];
 }
 
 const RoadMarkings = () => {
@@ -387,9 +389,17 @@ const ForkliftLogic: React.FC<{
   keys: React.MutableRefObject<Record<string, boolean>>;
   setGrid: (grid: Grid | ((prev: Grid) => Grid)) => void;
   addNewsItem: (text: string, type?: 'positive' | 'negative' | 'neutral') => void;
-}> = ({ gameMode, fuel, forkliftRotation, setForkliftRotation, forkliftPos, setForkliftPos, grid, keys, setGrid, addNewsItem }) => {
+  controlsRef: React.RefObject<MapControlsImpl | null>;
+}> = ({ gameMode, fuel, forkliftRotation, setForkliftRotation, forkliftPos, setForkliftPos, grid, keys, setGrid, addNewsItem, controlsRef }) => {
   useFrame((state, delta) => {
     if ((gameMode === GameMode.Forklift || gameMode === GameMode.Tutorial) && fuel > 0) {
+      // Update camera target
+      if (controlsRef.current) {
+        const [wx, _, wz] = gridToWorld(forkliftPos.x, forkliftPos.y);
+        controlsRef.current.target.lerp(new THREE.Vector3(wx, 0, wz), 0.1);
+        controlsRef.current.update();
+      }
+
       let dx = 0;
       let dy = 0;
       const speed = 5 * delta;
@@ -443,7 +453,7 @@ const ForkliftLogic: React.FC<{
           const tile = grid[cy]?.[cx];
           if (tile && unmovableTypes.includes(tile.buildingType)) {
             hasCollision = true;
-          } else if (tile && tile.buildingType === BuildingType.Pallet) {
+          } else if (tile && (tile.buildingType === BuildingType.Pallet || (tile.pallets && tile.pallets[0]))) {
             hitPalletX = cx;
             hitPalletY = cy;
           }
@@ -464,18 +474,18 @@ const ForkliftLogic: React.FC<{
             const nextTile = grid[nextTileY]?.[nextTileX];
             const driveableTypes = [BuildingType.Floor, BuildingType.None, BuildingType.LoadingBay, BuildingType.ForkliftStation];
             
-            if (nextTile && driveableTypes.includes(nextTile.buildingType)) {
+            if (nextTile && driveableTypes.includes(nextTile.buildingType) && (!nextTile.pallets || !nextTile.pallets[0])) {
               // Valid push
               setGrid(prev => {
                 const newGrid = prev.map(row => [...row]);
                 const palletTile = newGrid[hitPalletY][hitPalletX];
                 const destTile = newGrid[nextTileY][nextTileX];
                 
-                const nextBaseType = destTile.buildingType;
-                const restoreBaseType = palletTile.baseType || BuildingType.Floor;
-                
-                newGrid[nextTileY][nextTileX] = { ...destTile, buildingType: BuildingType.Pallet, baseType: nextBaseType, pallets: [true, false, false] };
-                newGrid[hitPalletY][hitPalletX] = { ...palletTile, buildingType: restoreBaseType, pallets: [false, false, false], baseType: BuildingType.Floor };
+                newGrid[nextTileY][nextTileX] = { ...destTile, pallets: [true, false, false] };
+                newGrid[hitPalletY][hitPalletX] = { ...palletTile, pallets: [false, false, false] };
+                if (newGrid[hitPalletY][hitPalletX].buildingType === BuildingType.Pallet) {
+                  newGrid[hitPalletY][hitPalletX].buildingType = BuildingType.Floor;
+                }
                 return newGrid;
               });
               setForkliftPos({ x: newX, y: newY });
@@ -492,14 +502,100 @@ const ForkliftLogic: React.FC<{
   return null;
 };
 
+const BayTruck = ({ phase }: { phase: string }) => {
+  const groupRef = useRef<THREE.Group>(null);
+  const startZ = -5;
+  const endZ = -1;
+
+  useFrame(() => {
+    if (!groupRef.current) return;
+    let targetZ = endZ;
+    if (phase === 'arriving') targetZ = endZ;
+    if (phase === 'leaving') targetZ = startZ;
+    if (phase === 'waiting') targetZ = startZ;
+    
+    groupRef.current.position.z = THREE.MathUtils.lerp(groupRef.current.position.z, targetZ, 0.05);
+  });
+
+  useEffect(() => {
+    if (groupRef.current) {
+      if (phase === 'arriving' || phase === 'waiting') {
+        groupRef.current.position.z = startZ;
+      }
+    }
+  }, [phase]);
+
+  return (
+    <group ref={groupRef} position={[0, 0, startZ]} rotation={[0, Math.PI, 0]}>
+      <Truck color="#ef4444" />
+    </group>
+  );
+};
+
+const Bay = ({ x, y, type, activeBay }: { x: number, y: number, type: 'inbound' | 'outbound', activeBay?: ActiveBay }) => {
+  const rot = getBayRotation(x, y, GRID_SIZE);
+  const isDoorOpen = activeBay && ['arriving', 'unloading', 'loading', 'leaving'].includes(activeBay.phase);
+  const doorRef = useRef<THREE.Mesh>(null);
+  const beaconActive = activeBay && activeBay.phase !== 'leaving';
+  const beaconColor = type === 'inbound' ? "#eab308" : "#3b82f6";
+  const [wx, _, wz] = gridToWorld(x, y);
+
+  const matRef = useRef<THREE.MeshStandardMaterial>(null);
+  useFrame(({ clock }) => {
+    if (matRef.current) {
+      if (beaconActive) {
+        matRef.current.emissiveIntensity = Math.sin(clock.elapsedTime * 10) > 0 ? 2 : 0;
+      } else {
+        matRef.current.emissiveIntensity = 0;
+      }
+    }
+    if (doorRef.current) {
+      const targetY = isDoorOpen ? 0.8 : 0;
+      doorRef.current.position.y = THREE.MathUtils.lerp(doorRef.current.position.y, 0.4 + targetY, 0.1);
+    }
+  });
+
+  return (
+    <group rotation={[0, rot, 0]}>
+      {/* Wall structure */}
+      <mesh position={[-0.4, 0.5, 0]}><boxGeometry args={[0.2, 1, 1]}/><meshStandardMaterial color="#334155"/></mesh>
+      <mesh position={[0.4, 0.5, 0]}><boxGeometry args={[0.2, 1, 1]}/><meshStandardMaterial color="#334155"/></mesh>
+      <mesh position={[0, 0.9, 0]}><boxGeometry args={[1, 0.2, 1]}/><meshStandardMaterial color="#334155"/></mesh>
+      
+      {/* Door */}
+      <mesh ref={doorRef} position={[0, 0.4, 0]}><boxGeometry args={[0.8, 0.8, 0.1]}/><meshStandardMaterial color="#94a3b8"/></mesh>
+      
+      {/* Road (Outside) */}
+      <mesh position={[0, -0.39, -1]}><boxGeometry args={[1, 0.02, 1]}/><meshStandardMaterial color="#1e293b"/></mesh>
+      <mesh position={[0, -0.39, -2]}><boxGeometry args={[1, 0.02, 1]}/><meshStandardMaterial color="#1e293b"/></mesh>
+      
+      {/* Drop Zone Markings (Inside) */}
+      <mesh position={[0, -0.38, 1]} rotation={[-Math.PI/2, 0, 0]}>
+        <planeGeometry args={[0.8, 0.8]}/>
+        <meshBasicMaterial color={beaconColor} transparent opacity={0.5} />
+      </mesh>
+      
+      {/* Beacon */}
+      <mesh position={[0, 1.1, 0]}>
+        <cylinderGeometry args={[0.05, 0.05, 0.1]}/>
+        <meshStandardMaterial ref={matRef} color={beaconActive ? beaconColor : "#475569"} emissive={beaconActive ? beaconColor : "#000000"} />
+      </mesh>
+
+      {/* Truck Animation */}
+      {activeBay && <BayTruck phase={activeBay.phase} />}
+    </group>
+  );
+};
+
 const IsoMap: React.FC<IsoMapProps> = ({ 
   grid, onTileClick, hoveredTool, gameMode, 
   forkliftPos, setForkliftPos, forkliftRotation, setForkliftRotation,
   carryingPallet, setCarryingPallet, fuel, onForkliftAction,
-  forksLevel, setForksLevel, setGrid, addNewsItem, dropEffect
+  forksLevel, setForksLevel, setGrid, addNewsItem, dropEffect, activeBays
 }) => {
   const [hoveredTile, setHoveredTile] = useState<{x: number, y: number} | null>(null);
   const keys = useRef<Record<string, boolean>>({});
+  const controlsRef = useRef<MapControlsImpl>(null);
 
   useEffect(() => {
     const handleKey = (key: string, isDown: boolean) => {
@@ -544,6 +640,7 @@ const IsoMap: React.FC<IsoMapProps> = ({
         <OrthographicCamera makeDefault zoom={45} position={[20, 20, 20]} near={-100} far={200} />
         
         <MapControls 
+          ref={controlsRef}
           enableRotate={gameMode === GameMode.Design || gameMode === GameMode.Tutorial}
           enableZoom={true}
           minZoom={20}
@@ -574,6 +671,7 @@ const IsoMap: React.FC<IsoMapProps> = ({
           keys={keys}
           setGrid={setGrid}
           addNewsItem={addNewsItem}
+          controlsRef={controlsRef}
         />
 
         <RoadMarkings />
@@ -583,6 +681,7 @@ const IsoMap: React.FC<IsoMapProps> = ({
             row.map((tile, x) => {
               const [wx, _, wz] = gridToWorld(x, y);
               const config = BUILDINGS[tile.buildingType];
+              const activeBay = activeBays?.find(b => b.x === x && b.y === y);
               
               return (
                 <React.Fragment key={`${x}-${y}`}>
@@ -624,9 +723,11 @@ const IsoMap: React.FC<IsoMapProps> = ({
                         gameMode={gameMode}
                       />
                     )}
-                    {tile.buildingType === BuildingType.LoadingBay && <LoadingBay color={config.color} />}
+                    {(tile.buildingType === BuildingType.LoadingBay || tile.buildingType === BuildingType.CrossDocking) && (
+                      <Bay x={x} y={y} type={tile.buildingType === BuildingType.LoadingBay ? 'inbound' : 'outbound'} activeBay={activeBay} />
+                    )}
                     {tile.buildingType === BuildingType.Truck && <Truck color={config.color} />}
-                    {tile.buildingType === BuildingType.Pallet && <Pallet color={config.color} />}
+                    {(tile.buildingType === BuildingType.Pallet || (tile.pallets?.[0] && tile.buildingType !== BuildingType.HeavyRack && tile.buildingType !== BuildingType.CantileverRack)) && <Pallet color={BUILDINGS[BuildingType.Pallet].color} />}
                     {tile.buildingType === BuildingType.ForkliftStation && (
                       <group>
                         <mesh geometry={boxGeo} scale={[0.8, 0.1, 0.8]}>
@@ -637,16 +738,6 @@ const IsoMap: React.FC<IsoMapProps> = ({
                         </mesh>
                         <mesh geometry={sphereGeo} position={[0, 0.45, 0]} scale={[0.1, 0.1, 0.1]}>
                           <meshStandardMaterial color="#eab308" emissive="#eab308" emissiveIntensity={0.5} />
-                        </mesh>
-                      </group>
-                    )}
-                    {tile.buildingType === BuildingType.CrossDocking && (
-                      <group>
-                        <mesh geometry={boxGeo} scale={[0.9, 0.05, 0.9]}>
-                          <meshStandardMaterial color={config.color} />
-                        </mesh>
-                        <mesh geometry={boxGeo} position={[0, 0.01, 0]} scale={[0.8, 0.01, 0.8]}>
-                          <meshStandardMaterial color="#334155" />
                         </mesh>
                       </group>
                     )}
@@ -692,7 +783,9 @@ const IsoMap: React.FC<IsoMapProps> = ({
                     gameMode={gameMode}
                   />
                 )}
-                {hoveredTool === BuildingType.LoadingBay && <LoadingBay color={BUILDINGS[hoveredTool].color} />}
+                {(hoveredTool === BuildingType.LoadingBay || hoveredTool === BuildingType.CrossDocking) && (
+                  <Bay x={hoveredTile.x} y={hoveredTile.y} type={hoveredTool === BuildingType.LoadingBay ? 'inbound' : 'outbound'} />
+                )}
                 {hoveredTool === BuildingType.Truck && <Truck color={BUILDINGS[hoveredTool].color} />}
                 {hoveredTool === BuildingType.Pallet && <Pallet color={BUILDINGS[hoveredTool].color} />}
               </Float>

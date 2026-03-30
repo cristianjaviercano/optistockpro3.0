@@ -30,7 +30,13 @@ import {
   Timer,
   Target,
   Radio,
-  Star
+  Star,
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  Hand,
+  Gamepad2
 } from 'lucide-react';
 
 interface UIOverlayProps {
@@ -58,6 +64,7 @@ interface UIOverlayProps {
   language: Language;
   setLanguage: (lang: Language) => void;
   xpGain: { amount: number, id: number } | null;
+  moneyGain: { amount: number, id: number } | null;
 }
 
 const tools = [
@@ -130,13 +137,13 @@ const ToolButton: React.FC<{
 };
 
 const StatCard = ({ label, value, icon: Icon, color }: { label: string, value: string | number, icon: any, color: string }) => (
-  <div className="bg-slate-900/90 text-white p-2 md:p-3 rounded-xl border border-slate-700 shadow-xl backdrop-blur-md flex items-center gap-3 min-w-[120px]">
-    <div className={`p-2 rounded-lg ${color} bg-opacity-20`}>
-      <Icon className={`w-4 h-4 md:w-5 md:h-5 ${color.replace('bg-', 'text-')}`} />
+  <div className="bg-slate-900/90 text-white p-1 md:p-1.5 rounded-lg border border-slate-700 shadow-xl backdrop-blur-md flex items-center gap-1.5 min-w-[80px] md:min-w-[100px]">
+    <div className={`p-1 rounded-md ${color} bg-opacity-20`}>
+      <Icon className={`w-3 h-3 md:w-3.5 md:h-3.5 ${color.replace('bg-', 'text-')}`} />
     </div>
     <div className="flex flex-col">
-      <span className="text-[8px] md:text-[10px] text-slate-400 uppercase font-bold tracking-widest">{label}</span>
-      <span className="text-sm md:text-lg font-black font-mono">{value}</span>
+      <span className="text-[6px] md:text-[7px] text-slate-400 uppercase font-black tracking-widest leading-none mb-0.5">{label}</span>
+      <span className="text-[10px] md:text-xs font-black font-mono leading-none">{value}</span>
     </div>
   </div>
 );
@@ -165,7 +172,8 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
   currentSlotId,
   language,
   setLanguage,
-  xpGain
+  xpGain,
+  moneyGain
 }) => {
   const newsRef = useRef<HTMLDivElement>(null);
   const t = translations[language].ui;
@@ -178,6 +186,10 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
   const formattedHours = hours % 12 === 0 ? 12 : hours % 12;
   const timeString = `${formattedHours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')} ${ampm}`;
   const displayTime = `DÍA ${gameDay} - ${timeString}`;
+
+  const simulateKey = (key: string, isDown: boolean) => {
+    window.dispatchEvent(new CustomEvent(isDown ? 'virtual-keydown' : 'virtual-keyup', { detail: { key } }));
+  };
 
   useEffect(() => {
     if (newsRef.current) {
@@ -212,13 +224,13 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
 
         {/* Logo & Actions */}
         <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-3 bg-slate-900/80 p-2 pr-6 rounded-xl border border-slate-700 backdrop-blur-md">
-            <div className="p-2 bg-yellow-500 rounded-lg">
-              <Package className="w-5 h-5 text-slate-900" />
+          <div className="flex items-center gap-2 bg-slate-900/80 p-1.5 pr-4 rounded-lg border border-slate-700 backdrop-blur-md">
+            <div className="p-1.5 bg-yellow-500 rounded-md">
+              <Package className="w-4 h-4 text-slate-900" />
             </div>
             <div>
-              <h1 className="text-xl font-black tracking-tighter text-white leading-none">OPTISTOCK <span className="text-yellow-500">PRO</span></h1>
-              <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">{t.wms}</p>
+              <h1 className="text-lg font-black tracking-tighter text-white leading-none">OPTISTOCK <span className="text-yellow-500">PRO</span></h1>
+              <p className="text-[8px] text-slate-400 uppercase font-bold tracking-widest">{t.wms}</p>
             </div>
           </div>
           
@@ -278,22 +290,40 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
         {/* Stats Row */}
         <div className="flex flex-wrap gap-2 md:gap-4">
           {userProgress && (
-            <div className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white p-2 md:p-3 rounded-xl border border-blue-400 shadow-xl backdrop-blur-md flex items-center gap-3 min-w-[120px]">
-              <div className="p-2 rounded-lg bg-white/20">
-                <Trophy className="w-4 h-4 md:w-5 md:h-5 text-yellow-300" />
+            <div className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white p-1.5 md:p-2 rounded-lg border border-blue-400 shadow-xl backdrop-blur-md flex items-center gap-2 min-w-[90px] md:min-w-[110px]">
+              <div className="p-1.5 rounded-md bg-white/20">
+                <Trophy className="w-3.5 h-3.5 md:w-4 md:h-4 text-yellow-300" />
               </div>
               <div className="flex flex-col">
-                <span className="text-[8px] md:text-[10px] text-blue-100 uppercase font-bold tracking-widest">{t.operatorLvl}</span>
-                <span className="text-sm md:text-lg font-black font-mono">{userProgress.level} <span className="text-[10px] opacity-70">({userProgress.totalScore} XP)</span></span>
+                <span className="text-[7px] md:text-[8px] text-blue-100 uppercase font-bold tracking-widest leading-none mb-0.5">{t.operatorLvl}</span>
+                <span className="text-xs md:text-sm font-black font-mono leading-none">{userProgress.level} <span className="text-[8px] opacity-70">({userProgress.totalScore} XP)</span></span>
               </div>
             </div>
           )}
-          <StatCard 
-            label={t.capital} 
-            value={`$${stats.money.toLocaleString()}`} 
-            icon={TrendingUp} 
-            color="bg-green-500" 
-          />
+          <div className="relative">
+            <StatCard 
+              label={t.capital} 
+              value={`$${stats.money.toLocaleString()}`} 
+              icon={TrendingUp} 
+              color="bg-green-500" 
+            />
+            <AnimatePresence>
+              {moneyGain && (
+                <motion.div
+                  key={moneyGain.id}
+                  initial={{ opacity: 0, y: 10, scale: 0.8 }}
+                  animate={{ opacity: 1, y: -25, scale: 1 }}
+                  exit={{ opacity: 0, y: -40, scale: 0.8 }}
+                  transition={{ duration: 1, ease: "easeOut" }}
+                  className="absolute top-0 left-1/2 -translate-x-1/2 pointer-events-none z-50 whitespace-nowrap"
+                >
+                  <span className="text-xl font-black text-green-400 drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">
+                    +${moneyGain.amount}
+                  </span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
           <StatCard 
             label={t.fuel} 
             value={gameMode === GameMode.Tutorial ? "∞" : `${Math.round(stats.fuel)}%`} 
@@ -430,44 +460,94 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
         {/* Left: Tools & News */}
         <div className="flex flex-col gap-4">
           <div className="flex gap-2">
-            {/* Forklift Controls */}
-          {(gameMode === GameMode.Forklift || gameMode === GameMode.Tutorial) && (
-            <div className="flex flex-col gap-2">
-              <div className="bg-slate-800/90 backdrop-blur-md p-4 rounded-2xl border border-white/10 shadow-2xl flex flex-col gap-3">
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-white/60 text-xs font-bold uppercase tracking-widest">{t.forksHeight}</span>
-                  <span className="bg-blue-500 text-white text-[10px] px-2 py-0.5 rounded-full font-black">LVL {forksLevel + 1}</span>
+            {/* Control Panel */}
+            {(gameMode === GameMode.Forklift || gameMode === GameMode.Tutorial) && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-slate-900/95 backdrop-blur-xl p-3 rounded-2xl border border-slate-700 shadow-2xl flex flex-col gap-3 min-w-[200px]"
+              >
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <div className="flex items-center gap-2">
+                    <Gamepad2 className="w-4 h-4 text-yellow-500" />
+                    <span className="text-white text-[10px] font-black uppercase tracking-widest">{t.controlPanel}</span>
+                  </div>
+                  <span className="bg-blue-500 text-white text-[8px] px-2 py-0.5 rounded-full font-black uppercase">LVL {forksLevel + 1}</span>
                 </div>
-                <div className="flex gap-2">
-                  <button 
-                    onClick={onForksUp}
-                    disabled={forksLevel >= 2}
-                    className="flex-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-30 text-white py-2 rounded-xl transition-all flex items-center justify-center gap-2 font-bold text-sm"
-                  >
-                    <ChevronUp className="w-4 h-4" /> {t.up}
-                  </button>
-                  <button 
-                    onClick={onForksDown}
-                    disabled={forksLevel <= 0}
-                    className="flex-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-30 text-white py-2 rounded-xl transition-all flex items-center justify-center gap-2 font-bold text-sm"
-                  >
-                    <ChevronDown className="w-4 h-4" /> DOWN
-                  </button>
+
+                <div className="flex gap-4 items-center justify-center">
+                  {/* D-Pad */}
+                  <div className="grid grid-cols-3 gap-1.5 w-24 h-24">
+                    <div />
+                    <button 
+                      onPointerDown={() => simulateKey('w', true)} onPointerUp={() => simulateKey('w', false)} onPointerLeave={() => simulateKey('w', false)}
+                      className="bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg flex items-center justify-center active:bg-slate-600 transition-colors"
+                    >
+                      <ArrowUp className="w-4 h-4 text-white" />
+                    </button>
+                    <div />
+                    <button 
+                      onPointerDown={() => simulateKey('a', true)} onPointerUp={() => simulateKey('a', false)} onPointerLeave={() => simulateKey('a', false)}
+                      className="bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg flex items-center justify-center active:bg-slate-600 transition-colors"
+                    >
+                      <ArrowLeft className="w-4 h-4 text-white" />
+                    </button>
+                    <button 
+                      onPointerDown={() => simulateKey('s', true)} onPointerUp={() => simulateKey('s', false)} onPointerLeave={() => simulateKey('s', false)}
+                      className="bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg flex items-center justify-center active:bg-slate-600 transition-colors"
+                    >
+                      <ArrowDown className="w-4 h-4 text-white" />
+                    </button>
+                    <button 
+                      onPointerDown={() => simulateKey('d', true)} onPointerUp={() => simulateKey('d', false)} onPointerLeave={() => simulateKey('d', false)}
+                      className="bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg flex items-center justify-center active:bg-slate-600 transition-colors"
+                    >
+                      <ArrowRight className="w-4 h-4 text-white" />
+                    </button>
+                  </div>
+
+                  {/* Vertical Controls */}
+                  <div className="flex flex-col gap-1.5 flex-1">
+                    <div className="flex gap-1.5">
+                      <button 
+                        onPointerDown={() => simulateKey('q', true)} onPointerUp={() => simulateKey('q', false)} onPointerLeave={() => simulateKey('q', false)}
+                        onClick={onForksUp}
+                        disabled={forksLevel >= 2}
+                        className="flex-1 h-10 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 border border-slate-600 rounded-lg flex items-center justify-center active:bg-slate-600 transition-colors"
+                      >
+                        <ChevronUp className="w-4 h-4 text-white" />
+                      </button>
+                      <button 
+                        onPointerDown={() => simulateKey('e', true)} onPointerUp={() => simulateKey('e', false)} onPointerLeave={() => simulateKey('e', false)}
+                        onClick={onForksDown}
+                        disabled={forksLevel <= 0}
+                        className="flex-1 h-10 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 border border-slate-600 rounded-lg flex items-center justify-center active:bg-slate-600 transition-colors"
+                      >
+                        <ChevronDown className="w-4 h-4 text-white" />
+                      </button>
+                    </div>
+                    
+                    <button 
+                      onPointerDown={() => simulateKey(' ', true)} onPointerUp={() => simulateKey(' ', false)} onPointerLeave={() => simulateKey(' ', false)}
+                      className="w-full h-12 bg-blue-600 hover:bg-blue-500 border border-blue-400 rounded-lg flex items-center justify-center active:bg-blue-400 transition-colors shadow-lg shadow-blue-500/20"
+                    >
+                      <Hand className="w-5 h-5 text-white" />
+                    </button>
+
+                    {gameMode === GameMode.Forklift && (
+                      <button
+                        onClick={onBuyFuel}
+                        className="w-full h-8 bg-yellow-500 hover:bg-yellow-400 text-slate-900 rounded-lg font-black uppercase text-[8px] tracking-widest flex items-center justify-center gap-1 transition-colors"
+                      >
+                        <Fuel className="w-3 h-3" />
+                        {t.refuel}
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <div className="text-[10px] text-white/40 text-center font-medium">{t.useKeys}</div>
-              </div>
-              
-              {gameMode === GameMode.Forklift && (
-                <button
-                  onClick={onBuyFuel}
-                  className="bg-blue-600 text-white px-6 py-3 rounded-xl font-black uppercase tracking-tighter text-lg hover:bg-blue-500 transition-all shadow-xl flex items-center gap-2"
-                >
-                  <Fuel className="w-5 h-5" />
-                  {t.refuel}
-                </button>
-              )}
-            </div>
-          )}
+                <div className="text-[7px] text-slate-500 text-center font-bold uppercase tracking-widest opacity-50">{t.useKeys}</div>
+              </motion.div>
+            )}
           </div>
 
           <AnimatePresence>
@@ -511,7 +591,13 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
                     })}
                   </div>
                 </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
 
+          <AnimatePresence>
+            {(gameMode === GameMode.Design || gameMode === GameMode.Tutorial) && (
+              <div className="flex flex-col gap-2">
                 <motion.div 
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -592,9 +678,10 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
         </div>
       </div>
       
-      {/* Footer */}
-      <div className="absolute bottom-1 right-4 text-[9px] text-slate-500 font-mono uppercase tracking-widest">
-        Optistock Pro v1.0.4 // System Ready
+      {/* Footer & Mobile Controls */}
+      <div className="absolute bottom-1 right-4 text-[8px] text-slate-500 font-mono uppercase tracking-widest text-right leading-tight opacity-50">
+        Optistock Pro v1.0.5 // System Ready<br />
+        By. OWLS solutions, Ing. Cristian Javier Cano M (MsC)
       </div>
     </div>
   );

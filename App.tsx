@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Grid, TileData, BuildingType, WarehouseStats, GameMode, NewsItem, SaveSlot, Challenge, UserProgress, Language } from './types';
-import { GRID_SIZE, BUILDINGS, TICK_RATE_MS, INITIAL_MONEY, INITIAL_FUEL, TUTORIAL_STEPS, getPrebuiltGrid, getPrebuiltGrid2, getPrebuiltGrid3, CHALLENGES } from './constants';
+import { Grid, TileData, BuildingType, WarehouseStats, GameMode, NewsItem, SaveSlot, Challenge, UserProgress, Language, ActiveBay } from './types';
+import { GRID_SIZE, BUILDINGS, TICK_RATE_MS, INITIAL_MONEY, INITIAL_FUEL, TUTORIAL_STEPS, getPrebuiltGrid, getPrebuiltGrid2, getPrebuiltGrid3, CHALLENGES, getInwardTile } from './constants';
 import { translations } from './locales';
 import IsoMap from './components/IsoMap';
 import UIOverlay from './components/UIOverlay';
@@ -29,15 +29,16 @@ const INITIAL_STATS: WarehouseStats = {
   money: INITIAL_MONEY, 
   fuel: INITIAL_FUEL, 
   efficiency: 100, 
-  time: 480, // Starts at 8:00 AM (8 * 60)
+  day: 1,
+  time: 8, // Start at 8:00 AM
   score: 0 
 };
 
 function App() {
   // --- Game State ---
-  const [gameStarted, setGameStarted] = useState(true);
-  const [gameMode, setGameMode] = useState<GameMode>(GameMode.Tutorial);
-  const [currentSlotId, setCurrentSlotId] = useState<number | null>(1);
+  const [gameStarted, setGameStarted] = useState(false);
+  const [gameMode, setGameMode] = useState<GameMode>(GameMode.Design);
+  const [currentSlotId, setCurrentSlotId] = useState<number | null>(null);
   const [tutorialStep, setTutorialStep] = useState<number>(0);
 
   const [grid, setGrid] = useState<Grid>(createInitialGrid);
@@ -46,6 +47,7 @@ function App() {
   const [newsFeed, setNewsFeed] = useState<NewsItem[]>([]);
   const [currentTask, setCurrentTask] = useState<{ text: string, target: number, current: number, challengeId?: string } | null>(null);
   const [xpGain, setXpGain] = useState<{ amount: number, id: number } | null>(null);
+  const [moneyGain, setMoneyGain] = useState<{ amount: number, id: number } | null>(null);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
 
   useEffect(() => {
@@ -58,16 +60,17 @@ function App() {
       return () => clearTimeout(timer);
     }
   }, [xpGain]);
+
+  useEffect(() => {
+    if (moneyGain) {
+      const timer = setTimeout(() => setMoneyGain(null), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [moneyGain]);
   
   // --- User & Progress State ---
   const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [userProgress, setUserProgress] = useState<UserProgress | null>({
-    uid: 'local',
-    displayName: 'Operator',
-    totalScore: 0,
-    level: 1,
-    completedChallenges: []
-  });
+  const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
   const [activeChallenge, setActiveChallenge] = useState<Challenge | null>(null);
   const [challengeTimer, setChallengeTimer] = useState<number | null>(null);
   const [language, setLanguage] = useState<Language>('en');
@@ -79,7 +82,7 @@ function App() {
       if (i === 1) {
         slots.push({
           id: i,
-          name: "Sample Distribution Center",
+          name: "Level 1: Basic Operations",
           grid: getPrebuiltGrid(),
           stats: { ...INITIAL_STATS, money: 5000, time: 480 + 1440 * 10 },
           lastSaved: new Date().toISOString(),
@@ -88,7 +91,7 @@ function App() {
       } else if (i === 2) {
         slots.push({
           id: i,
-          name: "High Density Storage",
+          name: "Level 2: Dual Bays",
           grid: getPrebuiltGrid2(),
           stats: { ...INITIAL_STATS, money: 8000, time: 480 + 1440 * 5 },
           lastSaved: new Date().toISOString(),
@@ -97,7 +100,7 @@ function App() {
       } else if (i === 3) {
         slots.push({
           id: i,
-          name: "Fast Throughput Hub",
+          name: "Level 3: Full Warehouse",
           grid: getPrebuiltGrid3(),
           stats: { ...INITIAL_STATS, money: 12000, time: 480 + 1440 * 2 },
           lastSaved: new Date().toISOString(),
@@ -123,16 +126,22 @@ function App() {
   const [carryingPallet, setCarryingPallet] = useState(false);
   const [forksLevel, setForksLevel] = useState(0); // 0, 1, 2
   const [dropEffect, setDropEffect] = useState<{x: number, y: number, id: number} | null>(null);
+  const [activeBays, setActiveBays] = useState<ActiveBay[]>([]);
+  const [palletsSpawned, setPalletsSpawned] = useState(0);
 
   // Refs for accessing state inside intervals
   const gridRef = useRef(grid);
   const statsRef = useRef(stats);
   const gameModeRef = useRef(gameMode);
+  const forkliftPosRef = useRef(forkliftPos);
+  const forkliftRotationRef = useRef(forkliftRotation);
 
   // Sync refs
   useEffect(() => { gridRef.current = grid; }, [grid]);
   useEffect(() => { statsRef.current = stats; }, [stats]);
   useEffect(() => { gameModeRef.current = gameMode; }, [gameMode]);
+  useEffect(() => { forkliftPosRef.current = forkliftPos; }, [forkliftPos]);
+  useEffect(() => { forkliftRotationRef.current = forkliftRotation; }, [forkliftRotation]);
 
   const addNewsItem = useCallback((text: string, type: 'positive' | 'negative' | 'neutral' | 'mission' = 'neutral', sender: 'Controller' | 'System' = 'System') => {
     setNewsFeed(prev => [...prev.slice(-12), { id: Date.now().toString() + Math.random(), text, type, sender }]);
@@ -161,6 +170,65 @@ function App() {
       
       osc.start();
       osc.stop(ctx.currentTime + 0.15);
+    } catch (e) {
+      console.error("Audio playback failed", e);
+    }
+  }, []);
+
+  const playCoinSound = useCallback(() => {
+    try {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = new AudioContext();
+      
+      const playNote = (freq: number, startDelay: number, duration: number) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + startDelay);
+        gain.gain.setValueAtTime(0, ctx.currentTime + startDelay);
+        gain.gain.linearRampToValueAtTime(0.1, ctx.currentTime + startDelay + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + startDelay + duration);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(ctx.currentTime + startDelay);
+        osc.stop(ctx.currentTime + startDelay + duration);
+      };
+
+      playNote(987.77, 0, 0.1); // B5
+      playNote(1318.51, 0.1, 0.3); // E6
+      
+    } catch (e) {
+      console.error("Audio playback failed", e);
+    }
+  }, []);
+
+  const playLevelUpSound = useCallback(() => {
+    try {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = new AudioContext();
+      
+      const playChords = (freqs: number[], startDelay: number, duration: number) => {
+        freqs.forEach(freq => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(freq, ctx.currentTime + startDelay);
+          gain.gain.setValueAtTime(0, ctx.currentTime + startDelay);
+          gain.gain.linearRampToValueAtTime(0.05, ctx.currentTime + startDelay + 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + startDelay + duration);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(ctx.currentTime + startDelay);
+          osc.stop(ctx.currentTime + startDelay + duration);
+        });
+      };
+
+      playChords([523.25, 659.25, 783.99], 0, 0.15); // C Major
+      playChords([659.25, 830.61, 987.77], 0.15, 0.15); // E Major
+      playChords([783.99, 987.77, 1174.66], 0.3, 0.4); // G Major
+      
     } catch (e) {
       console.error("Audio playback failed", e);
     }
@@ -277,57 +345,83 @@ function App() {
           if (prev <= 1) {
             addNewsItem(tMsg.missionFailed, 'negative', 'Controller');
             setActiveChallenge(null);
+            setGameMode(GameMode.Design);
             return 0;
           }
           return prev - 1;
         });
       }
 
-      // Update unloading trucks
-      setGrid(prev => {
-        let changed = false;
-        const nextGrid = prev.map(row => row.map(cell => {
-          if (cell.buildingType === BuildingType.Truck && cell.variant !== undefined && cell.variant > 0) {
-            changed = true;
-            const newVar = cell.variant - 1;
-            if (newVar <= 0) {
-              return { ...cell, buildingType: BuildingType.Pallet, baseType: BuildingType.Floor, pallets: [true, false, false], variant: undefined };
-            }
-            return { ...cell, variant: newVar };
-          }
-          return cell;
-        }));
-        return changed ? nextGrid : prev;
-      });
-
-      // Spawn pallets at Loading Bays
+      // Spawn pallets at Receiving Bays
       if (gameModeRef.current === GameMode.Forklift && Math.random() > 0.8) {
-        const loadingBays = gridRef.current.flat().filter(t => t.buildingType === BuildingType.LoadingBay);
-        if (loadingBays.length > 0) {
-          const bay = loadingBays[Math.floor(Math.random() * loadingBays.length)];
-          // Check if adjacent tile is floor and empty
-          const adjX = bay.x;
-          const adjY = bay.y + 1; // Valid offset for the front of the bay
-          
-          if (adjY < GRID_SIZE && gridRef.current[adjY][adjX].buildingType === BuildingType.Floor) {
-            setGrid(prev => {
-              const newGrid = prev.map(row => [...row]);
-              newGrid[adjY][adjX] = { ...newGrid[adjY][adjX], buildingType: BuildingType.Truck, variant: 2 }; // Takes 2 ticks to unload
-              return newGrid;
+        // Limit pallets if in challenge, otherwise allow up to a reasonable amount
+        const canSpawn = activeChallenge 
+          ? palletsSpawned < activeChallenge.targetPallets 
+          : gridRef.current.flat().filter(t => t.pallets?.[0]).length < 20;
+
+        if (canSpawn) {
+          const receivingBays = gridRef.current.flat().filter(t => t.buildingType === BuildingType.LoadingBay);
+          if (receivingBays.length > 0) {
+            const bay = receivingBays[Math.floor(Math.random() * receivingBays.length)];
+            
+            // Check if bay is already active
+            setActiveBays(prev => {
+              if (prev.some(b => b.x === bay.x && b.y === bay.y)) return prev;
+
+              const truckId = Date.now();
+              const newBay: ActiveBay = { id: truckId, x: bay.x, y: bay.y, type: 'inbound', phase: 'arriving' };
+              
+              // Notify truck arrival
+              addNewsItem(tMsg.truckDelivery || "Truck arriving at Receiving Bay...", 'neutral');
+              if (activeChallenge) setPalletsSpawned(p => p + 1);
+
+              // Sequence: arriving -> unloading -> leaving -> remove
+              setTimeout(() => {
+                setActiveBays(current => current.map(b => b.id === truckId ? { ...b, phase: 'unloading' } : b));
+                
+                // Spawn pallet after unloading starts
+                setTimeout(() => {
+                  setGrid(gridPrev => {
+                    const newGrid = gridPrev.map(row => [...row]);
+                    const inward = getInwardTile(bay.x, bay.y, GRID_SIZE);
+                    if (inward && newGrid[inward.y][inward.x].buildingType === BuildingType.Floor && !newGrid[inward.y][inward.x].pallets?.[0]) {
+                      newGrid[inward.y][inward.x] = { ...newGrid[inward.y][inward.x], pallets: [true, false, false] };
+                      addNewsItem(tMsg.truckDelivery, 'positive'); // Real delivery success message
+                      addNewsItem(tMsg.newPallet, 'neutral');
+                    } else {
+                      addNewsItem(tMsg.bayBlocked, 'negative');
+                    }
+                    return newGrid;
+                  });
+
+                  // Then leave
+                  setTimeout(() => {
+                    setActiveBays(current => current.map(b => b.id === truckId ? { ...b, phase: 'leaving' } : b));
+                    
+                    // Finally remove
+                    setTimeout(() => {
+                      setActiveBays(current => current.filter(b => b.id !== truckId));
+                    }, 2000);
+                  }, 2000);
+                }, 1000);
+              }, 2000);
+
+              return [...prev, newBay];
             });
-            addNewsItem(tMsg.truckDelivery || "¡Camión llegando!", 'neutral');
           }
         }
       }
 
-      if (Math.random() > 0.9) {
-        const events = [
-          { text: tMsg.truckDelivery, type: 'positive' },
-          { text: tMsg.maintenanceReq, type: 'negative' }
-        ];
-        const event = events[Math.floor(Math.random() * events.length)];
-        addNewsItem(event.text, event.type as any);
-      }
+      // Time progression
+      setStats(prev => {
+        let newTime = prev.time + (1 / 60); // 1 in-game hour = 60 real seconds (1 minute per hour)
+        let newDay = prev.day;
+        if (newTime >= 18) { // Shift ends at 18:00 (6:00 PM)
+          newTime = 8;
+          newDay += 1;
+        }
+        return { ...prev, time: newTime, day: newDay };
+      });
 
     }, TICK_RATE_MS);
 
@@ -342,7 +436,16 @@ function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        setSaveSlots(parsed);
+        // Merge with initial slots to ensure prebuilt levels are available if slots are empty
+        setSaveSlots(prev => {
+          return prev.map(initialSlot => {
+            const savedSlot = parsed.find((s: any) => s.id === initialSlot.id);
+            if (savedSlot && !savedSlot.isEmpty) {
+              return savedSlot;
+            }
+            return initialSlot;
+          });
+        });
       } catch (e) {
         console.error("Failed to load save slots", e);
       }
@@ -385,6 +488,15 @@ function App() {
 
     // Placement Logic
     if (currentTile.buildingType === BuildingType.None || currentTile.buildingType === BuildingType.Floor) {
+      // Special check for LoadingBay and CrossDocking: must be on edges
+      if (tool === BuildingType.LoadingBay || tool === BuildingType.CrossDocking) {
+        const isOnEdge = x === 0 || x === GRID_SIZE - 1 || y === 0 || y === GRID_SIZE - 1;
+        if (!isOnEdge) {
+          addNewsItem(translations[language].messages.bayOnEdge || "Bays must be placed on the warehouse edges!", 'negative');
+          return;
+        }
+      }
+
       if (currentStats.money >= buildingConfig.cost) {
         setStats(prev => ({ ...prev, money: prev.money - buildingConfig.cost }));
         const newGrid = currentGrid.map(row => [...row]);
@@ -400,6 +512,7 @@ function App() {
             if (userProgress) {
               setUserProgress(prev => prev ? { ...prev, totalScore: prev.totalScore + 500 } : prev);
               setXpGain({ amount: 500, id: Date.now() });
+              playLevelUpSound();
             }
           } else if (currentStep && tool !== currentStep.target) {
             addNewsItem(tMsg.incorrectPlacement.replace('{building}', translations[language].buildings[currentStep.target === BuildingType.Floor ? 'floor' : currentStep.target === BuildingType.HeavyRack ? 'heavyRack' : currentStep.target === BuildingType.CantileverRack ? 'cantilever' : currentStep.target === BuildingType.LoadingBay ? 'loadingBay' : currentStep.target === BuildingType.Truck ? 'truck' : currentStep.target === BuildingType.Pallet ? 'pallet' : currentStep.target === BuildingType.ForkliftStation ? 'forkliftStation' : currentStep.target === BuildingType.CrossDocking ? 'crossDocking' : 'floor']), 'negative');
@@ -476,6 +589,7 @@ function App() {
 
   const startChallenge = (challenge: Challenge) => {
     setActiveChallenge(challenge);
+    setPalletsSpawned(0);
     setChallengeTimer(challenge.timeLimit);
     const challengeTitle = translations[language].challenges[`${challenge.id}Title` as keyof typeof translations['en']['challenges']] || challenge.title;
     setCurrentTask({
@@ -502,12 +616,14 @@ function App() {
       };
       setUserProgress(newProgress);
       setXpGain({ amount: score, id: Date.now() });
+      playLevelUpSound();
     }
 
     addNewsItem(tMsg.missionSuccess.replace('{id}', challenge.id).replace('{score}', score.toString()), 'positive', 'Controller');
     setActiveChallenge(null);
     setChallengeTimer(null);
     setCurrentTask(null);
+    setGameMode(GameMode.Design);
   };
 
   const buyFuel = () => {
@@ -526,8 +642,10 @@ function App() {
 
   const onForkliftAction = useCallback(() => {
     // Check tile in front of forklift
-    const frontX = forkliftPos.x + Math.sin(forkliftRotation) * 0.8;
-    const frontY = forkliftPos.y + Math.cos(forkliftRotation) * 0.8;
+    const currentPos = forkliftPosRef.current;
+    const currentRot = forkliftRotationRef.current;
+    const frontX = currentPos.x + Math.sin(currentRot) * 0.8;
+    const frontY = currentPos.y + Math.cos(currentRot) * 0.8;
     
     const tileX = Math.round(frontX);
     const tileY = Math.round(frontY);
@@ -541,10 +659,10 @@ function App() {
 
     if (!carryingPallet) {
       // Pick up logic
-      if (tile.buildingType === BuildingType.Pallet && level === 0) {
+      if ((tile.buildingType === BuildingType.Floor || tile.buildingType === BuildingType.LoadingBay || tile.buildingType === BuildingType.None) && pallets[0] && level === 0) {
         setCarryingPallet(true);
         const newGrid = currentGrid.map(row => [...row]);
-        newGrid[tileY][tileX] = { ...tile, buildingType: BuildingType.Floor, pallets: [false, false, false] };
+        newGrid[tileY][tileX] = { ...tile, pallets: [false, false, false] };
         setGrid(newGrid);
         playPickSound();
         addNewsItem(tMsg.palletPickedFloor, 'neutral');
@@ -564,16 +682,75 @@ function App() {
       }
     } else {
       // Drop off logic
-      if ((tile.buildingType === BuildingType.Floor || tile.buildingType === BuildingType.None || tile.buildingType === BuildingType.LoadingBay) && level === 0) {
+      if ((tile.buildingType === BuildingType.Floor || tile.buildingType === BuildingType.LoadingBay || tile.buildingType === BuildingType.None) && !pallets[0] && level === 0) {
+        // Check if this floor tile is an inward tile for a CrossDocking bay
+        const adjacentCrossDocking = [
+          { x: tileX, y: tileY - 1 },
+          { x: tileX, y: tileY + 1 },
+          { x: tileX - 1, y: tileY },
+          { x: tileX + 1, y: tileY }
+        ].find(pos => {
+          const adjTile = currentGrid[pos.y]?.[pos.x];
+          if (adjTile && adjTile.buildingType === BuildingType.CrossDocking) {
+            const inward = getInwardTile(pos.x, pos.y, GRID_SIZE);
+            return inward && inward.x === tileX && inward.y === tileY;
+          }
+          return false;
+        });
+
+        if (adjacentCrossDocking) {
+          // Dispatch logic
+          setCarryingPallet(false);
+          setStats(prev => ({ ...prev, score: prev.score + 100, money: prev.money + 50 }));
+          setMoneyGain({ amount: 50, id: Date.now() });
+          playCoinSound();
+          playDropSound();
+          setDropEffect({ x: tileX, y: tileY, id: Date.now() });
+          addNewsItem(tMsg.palletDispatched, 'positive');
+
+          // Trigger outbound bay animation
+          const truckId = Date.now();
+          setActiveBays(prev => [...prev, { id: truckId, x: adjacentCrossDocking.x, y: adjacentCrossDocking.y, type: 'outbound', phase: 'arriving' }]);
+          
+          setTimeout(() => {
+            setActiveBays(current => current.map(b => b.id === truckId ? { ...b, phase: 'loading' } : b));
+            setTimeout(() => {
+              setActiveBays(current => current.map(b => b.id === truckId ? { ...b, phase: 'leaving' } : b));
+              setTimeout(() => {
+                setActiveBays(current => current.filter(b => b.id !== truckId));
+              }, 2000);
+            }, 2000);
+          }, 2000);
+
+          if (currentTask && currentTask.text.includes("Dispatch")) {
+             const isComplete = currentTask.current + 1 >= currentTask.target;
+             if (isComplete) {
+               setCurrentTask(null);
+               if (activeChallenge) {
+                  completeChallenge(activeChallenge, activeChallenge.baseScore + (challengeTimer || 0) * 10);
+               } else {
+                  addNewsItem(tMsg.taskCompleted, 'positive', 'Controller');
+                  setStats(s => ({ ...s, money: s.money + 500, score: s.score + 200 }));
+                  setMoneyGain({ amount: 500, id: Date.now() });
+                  playCoinSound();
+               }
+             } else {
+               setCurrentTask({ ...currentTask, current: currentTask.current + 1 });
+             }
+          }
+          return; // Skip normal floor drop
+        }
+
         setCarryingPallet(false);
         const newGrid = currentGrid.map(row => [...row]);
-        const nextBaseType = tile.buildingType;
-        newGrid[tileY][tileX] = { ...tile, buildingType: BuildingType.Pallet, baseType: nextBaseType, pallets: [true, false, false] };
+        newGrid[tileY][tileX] = { ...tile, pallets: [true, false, false] };
         setGrid(newGrid);
         setStats(prev => ({ ...prev, score: prev.score + 10 }));
         playDropSound();
         setDropEffect({ x: tileX, y: tileY, id: Date.now() });
         addNewsItem(tMsg.palletDroppedFloor, 'neutral');
+      } else if (tile.buildingType === BuildingType.CrossDocking && level === 0) {
+        addNewsItem(tMsg.incorrectPlacement.replace('{building}', 'Dispatch Bay'), 'negative');
       } else if (tile.buildingType === BuildingType.HeavyRack && !pallets[level]) {
         setCarryingPallet(false);
         const newGrid = currentGrid.map(row => [...row]);
@@ -583,6 +760,8 @@ function App() {
         setGrid(newGrid);
         
         setStats(prev => ({ ...prev, score: prev.score + 50, money: prev.money + 20 }));
+        setMoneyGain({ amount: 20, id: Date.now() });
+        playCoinSound();
         playDropSound();
         setDropEffect({ x: tileX, y: tileY, id: Date.now() });
         addNewsItem(tMsg.palletStoredRack.replace('{level}', (level + 1).toString()), 'positive');
@@ -596,6 +775,8 @@ function App() {
             } else {
               addNewsItem(tMsg.taskCompleted, 'positive', 'Controller');
               setStats(s => ({ ...s, money: s.money + 500, score: s.score + 200 }));
+              setMoneyGain({ amount: 500, id: Date.now() });
+              playCoinSound();
             }
           } else {
             setCurrentTask({ ...currentTask, current: currentTask.current + 1 });
@@ -604,6 +785,8 @@ function App() {
       } else if (tile.buildingType === BuildingType.Truck) {
         setCarryingPallet(false);
         setStats(prev => ({ ...prev, score: prev.score + 100, money: prev.money + 50 }));
+        setMoneyGain({ amount: 50, id: Date.now() });
+        playCoinSound();
         playDropSound();
         setDropEffect({ x: tileX, y: tileY, id: Date.now() });
         addNewsItem(tMsg.palletLoadedTruck, 'positive');
@@ -614,6 +797,8 @@ function App() {
             setCurrentTask(null);
             addNewsItem(tMsg.taskCompletedBonus, 'positive');
             setStats(s => ({ ...s, money: s.money + 500, score: s.score + 200 }));
+            setMoneyGain({ amount: 500, id: Date.now() });
+            playCoinSound();
           } else {
             setCurrentTask({ ...currentTask, current: currentTask.current + 1 });
           }
@@ -622,7 +807,7 @@ function App() {
         addNewsItem(tMsg.cannotDrop, 'negative');
       }
     }
-  }, [forkliftPos, forkliftRotation, carryingPallet, addNewsItem, currentTask, forksLevel, playDropSound, playPickSound, tMsg, activeChallenge, challengeTimer]);
+  }, [carryingPallet, addNewsItem, currentTask, forksLevel, playDropSound, playPickSound, playCoinSound, playLevelUpSound, tMsg, activeChallenge, challengeTimer]);
 
   return (
     <div className="relative w-screen h-screen overflow-hidden selection:bg-transparent selection:text-transparent bg-slate-900">
@@ -644,6 +829,7 @@ function App() {
         setGrid={setGrid}
         addNewsItem={addNewsItem}
         dropEffect={dropEffect}
+        activeBays={activeBays}
       />
       
       {!gameStarted && (
@@ -684,6 +870,7 @@ function App() {
           language={language}
           setLanguage={setLanguage}
           xpGain={xpGain}
+          moneyGain={moneyGain}
         />
       )}
 
