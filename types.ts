@@ -36,6 +36,7 @@ export interface TileData {
   x: number;
   y: number;
   buildingType: BuildingType;
+  baseType?: BuildingType; // The original floor type beneath a pallet
   variant?: number;
   pallets?: boolean[]; // [level0, level1, level2]
 }
@@ -46,7 +47,7 @@ export interface WarehouseStats {
   money: number;
   fuel: number;
   efficiency: number;
-  day: number;
+  time: number; // in game minutes
   score: number;
 }
 

@@ -411,52 +411,81 @@ const ForkliftLogic: React.FC<{
       }
 
       if (dx !== 0 || dy !== 0) {
+        // Apply movement limits
         const newX = Math.max(0, Math.min(GRID_SIZE - 1, forkliftPos.x + dx));
         const newY = Math.max(0, Math.min(GRID_SIZE - 1, forkliftPos.y + dy));
         
-        const tileX = Math.round(newX);
-        const tileY = Math.round(newY);
-        const tile = grid[tileY]?.[tileX];
+        // Define Hitbox radius
+        const radius = 0.35;
+        const corners = [
+          {x: newX - radius, y: newY - radius},
+          {x: newX + radius, y: newY - radius},
+          {x: newX - radius, y: newY + radius},
+          {x: newX + radius, y: newY + radius}
+        ];
         
-        if (tile) {
-          const unmovableTypes = [
-            BuildingType.HeavyRack, 
-            BuildingType.CantileverRack, 
-            BuildingType.Truck,
-            BuildingType.CrossDocking
-          ];
+        let hasCollision = false;
+        let hitPalletX = -1;
+        let hitPalletY = -1;
+        
+        const unmovableTypes = [
+          BuildingType.HeavyRack, 
+          BuildingType.CantileverRack, 
+          BuildingType.Truck,
+          BuildingType.CrossDocking
+        ];
 
-          // Collision: Stop at unmovable objects
-          if (unmovableTypes.includes(tile.buildingType)) {
-            return;
-          }
+        for (const corner of corners) {
+          const cx = Math.round(corner.x);
+          const cy = Math.round(corner.y);
+          if (cx < 0 || cx >= GRID_SIZE || cy < 0 || cy >= GRID_SIZE) continue;
           
-          if (tile.buildingType === BuildingType.Pallet) {
-            // Try to push pallet
-            const pushDirX = Math.sign(dx);
-            const pushDirY = Math.sign(dy);
-            const nextTileX = tileX + (Math.abs(dx) > Math.abs(dy) ? pushDirX : 0);
-            const nextTileY = tileY + (Math.abs(dy) > Math.abs(dx) ? pushDirY : 0);
-            
+          const tile = grid[cy]?.[cx];
+          if (tile && unmovableTypes.includes(tile.buildingType)) {
+            hasCollision = true;
+          } else if (tile && tile.buildingType === BuildingType.Pallet) {
+            hitPalletX = cx;
+            hitPalletY = cy;
+          }
+        }
+
+        if (hasCollision) {
+          return; // Cannot move this frame
+        }
+        
+        if (hitPalletX !== -1 && hitPalletY !== -1) {
+          // Push logic
+          const pushDirX = Math.sign(dx);
+          const pushDirY = Math.sign(dy);
+          const nextTileX = hitPalletX + (Math.abs(dx) > Math.abs(dy) ? pushDirX : 0);
+          const nextTileY = hitPalletY + (Math.abs(dy) > Math.abs(dx) ? pushDirY : 0);
+          
+          if (nextTileX >= 0 && nextTileX < GRID_SIZE && nextTileY >= 0 && nextTileY < GRID_SIZE) {
             const nextTile = grid[nextTileY]?.[nextTileX];
             const driveableTypes = [BuildingType.Floor, BuildingType.None, BuildingType.LoadingBay, BuildingType.ForkliftStation];
             
             if (nextTile && driveableTypes.includes(nextTile.buildingType)) {
-              // Push pallet
+              // Valid push
               setGrid(prev => {
                 const newGrid = prev.map(row => [...row]);
-                newGrid[nextTileY][nextTileX] = { ...nextTile, buildingType: BuildingType.Pallet, pallets: [true, false, false] };
-                newGrid[tileY][tileX] = { ...tile, buildingType: BuildingType.Floor, pallets: [false, false, false] };
+                const palletTile = newGrid[hitPalletY][hitPalletX];
+                const destTile = newGrid[nextTileY][nextTileX];
+                
+                const nextBaseType = destTile.buildingType;
+                const restoreBaseType = palletTile.baseType || BuildingType.Floor;
+                
+                newGrid[nextTileY][nextTileX] = { ...destTile, buildingType: BuildingType.Pallet, baseType: nextBaseType, pallets: [true, false, false] };
+                newGrid[hitPalletY][hitPalletX] = { ...palletTile, buildingType: restoreBaseType, pallets: [false, false, false], baseType: BuildingType.Floor };
                 return newGrid;
               });
               setForkliftPos({ x: newX, y: newY });
             }
-            return; // Stop if couldn't push or hit something
           }
-          
-          // Driveable: Move
-          setForkliftPos({ x: newX, y: newY });
+          return; // Stop moving if attempting to push
         }
+
+        // Driveable: Move
+        setForkliftPos({ x: newX, y: newY });
       }
     }
   });
@@ -473,26 +502,38 @@ const IsoMap: React.FC<IsoMapProps> = ({
   const keys = useRef<Record<string, boolean>>({});
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      keys.current[e.key.toLowerCase()] = true;
-      if (e.key === ' ' && (gameMode === GameMode.Forklift || gameMode === GameMode.Tutorial)) {
-        onForkliftAction();
-      }
-      if (e.key === 'q' && (gameMode === GameMode.Forklift || gameMode === GameMode.Tutorial)) {
-        setForksLevel(prev => Math.min(2, (prev as number) + 1));
-      }
-      if (e.key === 'e' && (gameMode === GameMode.Forklift || gameMode === GameMode.Tutorial)) {
-        setForksLevel(prev => Math.max(0, (prev as number) - 1));
+    const handleKey = (key: string, isDown: boolean) => {
+      keys.current[key.toLowerCase()] = isDown;
+      if (isDown) {
+        if (key === ' ' && (gameMode === GameMode.Forklift || gameMode === GameMode.Tutorial)) {
+          onForkliftAction();
+        }
+        if (key === 'q' && (gameMode === GameMode.Forklift || gameMode === GameMode.Tutorial)) {
+          setForksLevel(prev => Math.min(2, (prev as number) + 1));
+        }
+        if (key === 'e' && (gameMode === GameMode.Forklift || gameMode === GameMode.Tutorial)) {
+          setForksLevel(prev => Math.max(0, (prev as number) - 1));
+        }
       }
     };
-    const handleKeyUp = (e: KeyboardEvent) => keys.current[e.key.toLowerCase()] = false;
+
+    const handleKeyDown = (e: KeyboardEvent) => handleKey(e.key, true);
+    const handleKeyUp = (e: KeyboardEvent) => handleKey(e.key, false);
+    const handleVirtualKeyDown = (e: any) => handleKey(e.detail, true);
+    const handleVirtualKeyUp = (e: any) => handleKey(e.detail, false);
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('virtual-keydown', handleVirtualKeyDown as EventListener);
+    window.addEventListener('virtual-keyup', handleVirtualKeyUp as EventListener);
+
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('virtual-keydown', handleVirtualKeyDown as EventListener);
+      window.removeEventListener('virtual-keyup', handleVirtualKeyUp as EventListener);
     };
-  }, [gameMode, onForkliftAction]);
+  }, [gameMode, onForkliftAction, setForksLevel]);
 
   const showPreview = (gameMode === GameMode.Design || gameMode === GameMode.Tutorial) && hoveredTile && hoveredTool !== BuildingType.None;
   const previewPos = hoveredTile ? gridToWorld(hoveredTile.x, hoveredTile.y) : [0,0,0];

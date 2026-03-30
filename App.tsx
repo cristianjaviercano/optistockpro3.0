@@ -11,6 +11,7 @@ import UIOverlay from './components/UIOverlay';
 import StartScreen from './components/StartScreen';
 import { auth, signOut, db, doc, getDoc, setDoc, addDoc, serverTimestamp, collection, onAuthStateChanged, updateProfile, signInAnonymously } from './firebase';
 import { User as FirebaseUser } from 'firebase/auth';
+import MobileControls from './components/MobileControls';
 
 const createInitialGrid = (): Grid => {
   const grid: Grid = [];
@@ -28,7 +29,7 @@ const INITIAL_STATS: WarehouseStats = {
   money: INITIAL_MONEY, 
   fuel: INITIAL_FUEL, 
   efficiency: 100, 
-  day: 1,
+  time: 480, // Starts at 8:00 AM (8 * 60)
   score: 0 
 };
 
@@ -45,6 +46,11 @@ function App() {
   const [newsFeed, setNewsFeed] = useState<NewsItem[]>([]);
   const [currentTask, setCurrentTask] = useState<{ text: string, target: number, current: number, challengeId?: string } | null>(null);
   const [xpGain, setXpGain] = useState<{ amount: number, id: number } | null>(null);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+
+  useEffect(() => {
+    setIsTouchDevice('ontouchstart' in window || navigator.maxTouchPoints > 0);
+  }, []);
 
   useEffect(() => {
     if (xpGain) {
@@ -75,7 +81,7 @@ function App() {
           id: i,
           name: "Sample Distribution Center",
           grid: getPrebuiltGrid(),
-          stats: { ...INITIAL_STATS, money: 5000, day: 10 },
+          stats: { ...INITIAL_STATS, money: 5000, time: 480 + 1440 * 10 },
           lastSaved: new Date().toISOString(),
           isEmpty: false
         });
@@ -84,7 +90,7 @@ function App() {
           id: i,
           name: "High Density Storage",
           grid: getPrebuiltGrid2(),
-          stats: { ...INITIAL_STATS, money: 8000, day: 5 },
+          stats: { ...INITIAL_STATS, money: 8000, time: 480 + 1440 * 5 },
           lastSaved: new Date().toISOString(),
           isEmpty: false
         });
@@ -93,7 +99,7 @@ function App() {
           id: i,
           name: "Fast Throughput Hub",
           grid: getPrebuiltGrid3(),
-          stats: { ...INITIAL_STATS, money: 12000, day: 2 },
+          stats: { ...INITIAL_STATS, money: 12000, time: 480 + 1440 * 2 },
           lastSaved: new Date().toISOString(),
           isEmpty: false
         });
@@ -248,7 +254,7 @@ function App() {
           ...prev,
           money: prev.money + dailyIncome,
           fuel: newFuel,
-          day: prev.day + 1,
+          time: prev.time + 10, // Advance 10 game minutes per real-time second
           efficiency: Math.min(100, (buildingCounts[BuildingType.LoadingBay] || 0) * 20 + (buildingCounts[BuildingType.HeavyRack] || 0) * 5)
         };
       });
@@ -277,6 +283,23 @@ function App() {
         });
       }
 
+      // Update unloading trucks
+      setGrid(prev => {
+        let changed = false;
+        const nextGrid = prev.map(row => row.map(cell => {
+          if (cell.buildingType === BuildingType.Truck && cell.variant !== undefined && cell.variant > 0) {
+            changed = true;
+            const newVar = cell.variant - 1;
+            if (newVar <= 0) {
+              return { ...cell, buildingType: BuildingType.Pallet, baseType: BuildingType.Floor, pallets: [true, false, false], variant: undefined };
+            }
+            return { ...cell, variant: newVar };
+          }
+          return cell;
+        }));
+        return changed ? nextGrid : prev;
+      });
+
       // Spawn pallets at Loading Bays
       if (gameModeRef.current === GameMode.Forklift && Math.random() > 0.8) {
         const loadingBays = gridRef.current.flat().filter(t => t.buildingType === BuildingType.LoadingBay);
@@ -284,14 +307,15 @@ function App() {
           const bay = loadingBays[Math.floor(Math.random() * loadingBays.length)];
           // Check if adjacent tile is floor and empty
           const adjX = bay.x;
-          const adjY = bay.y + 1; // Simple logic: spawn below bay
+          const adjY = bay.y + 1; // Valid offset for the front of the bay
+          
           if (adjY < GRID_SIZE && gridRef.current[adjY][adjX].buildingType === BuildingType.Floor) {
             setGrid(prev => {
               const newGrid = prev.map(row => [...row]);
-              newGrid[adjY][adjX] = { ...newGrid[adjY][adjX], buildingType: BuildingType.Pallet };
+              newGrid[adjY][adjX] = { ...newGrid[adjY][adjX], buildingType: BuildingType.Truck, variant: 2 }; // Takes 2 ticks to unload
               return newGrid;
             });
-            addNewsItem(tMsg.newPallet, 'neutral');
+            addNewsItem(tMsg.truckDelivery || "¡Camión llegando!", 'neutral');
           }
         }
       }
@@ -540,10 +564,11 @@ function App() {
       }
     } else {
       // Drop off logic
-      if ((tile.buildingType === BuildingType.Floor || tile.buildingType === BuildingType.None) && level === 0) {
+      if ((tile.buildingType === BuildingType.Floor || tile.buildingType === BuildingType.None || tile.buildingType === BuildingType.LoadingBay) && level === 0) {
         setCarryingPallet(false);
         const newGrid = currentGrid.map(row => [...row]);
-        newGrid[tileY][tileX] = { ...tile, buildingType: BuildingType.Pallet, pallets: [true, false, false] };
+        const nextBaseType = tile.buildingType;
+        newGrid[tileY][tileX] = { ...tile, buildingType: BuildingType.Pallet, baseType: nextBaseType, pallets: [true, false, false] };
         setGrid(newGrid);
         setStats(prev => ({ ...prev, score: prev.score + 10 }));
         playDropSound();
@@ -563,20 +588,18 @@ function App() {
         addNewsItem(tMsg.palletStoredRack.replace('{level}', (level + 1).toString()), 'positive');
         
         if (currentTask && currentTask.text.includes("Heavy Racks")) {
-          setCurrentTask(prev => {
-            if (!prev) return null;
-            const next = { ...prev, current: prev.current + 1 };
-            if (next.current >= next.target) {
-              if (activeChallenge) {
-                completeChallenge(activeChallenge, activeChallenge.baseScore + (challengeTimer || 0) * 10);
-              } else {
-                addNewsItem(tMsg.taskCompleted, 'positive', 'Controller');
-                setStats(s => ({ ...s, money: s.money + 500, score: s.score + 200 }));
-              }
-              return null;
+          const isComplete = currentTask.current + 1 >= currentTask.target;
+          if (isComplete) {
+            setCurrentTask(null);
+            if (activeChallenge) {
+              completeChallenge(activeChallenge, activeChallenge.baseScore + (challengeTimer || 0) * 10);
+            } else {
+              addNewsItem(tMsg.taskCompleted, 'positive', 'Controller');
+              setStats(s => ({ ...s, money: s.money + 500, score: s.score + 200 }));
             }
-            return next;
-          });
+          } else {
+            setCurrentTask({ ...currentTask, current: currentTask.current + 1 });
+          }
         }
       } else if (tile.buildingType === BuildingType.Truck) {
         setCarryingPallet(false);
@@ -586,16 +609,14 @@ function App() {
         addNewsItem(tMsg.palletLoadedTruck, 'positive');
         
         if (currentTask && currentTask.text.includes("Truck")) {
-          setCurrentTask(prev => {
-            if (!prev) return null;
-            const next = { ...prev, current: prev.current + 1 };
-            if (next.current >= next.target) {
-              addNewsItem(tMsg.taskCompletedBonus, 'positive');
-              setStats(s => ({ ...s, money: s.money + 500, score: s.score + 200 }));
-              return null;
-            }
-            return next;
-          });
+          const isComplete = currentTask.current + 1 >= currentTask.target;
+          if (isComplete) {
+            setCurrentTask(null);
+            addNewsItem(tMsg.taskCompletedBonus, 'positive');
+            setStats(s => ({ ...s, money: s.money + 500, score: s.score + 200 }));
+          } else {
+            setCurrentTask({ ...currentTask, current: currentTask.current + 1 });
+          }
         }
       } else {
         addNewsItem(tMsg.cannotDrop, 'negative');
@@ -664,6 +685,10 @@ function App() {
           setLanguage={setLanguage}
           xpGain={xpGain}
         />
+      )}
+
+      {gameStarted && isTouchDevice && (gameMode === GameMode.Forklift || gameMode === GameMode.Tutorial) && (
+        <MobileControls />
       )}
 
       <style>{`

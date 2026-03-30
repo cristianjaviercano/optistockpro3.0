@@ -170,6 +170,15 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
   const newsRef = useRef<HTMLDivElement>(null);
   const t = translations[language].ui;
 
+  const gameDay = Math.floor(stats.time / (24 * 60)) + 1;
+  const totalMinutes = stats.time % (24 * 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  const formattedHours = hours % 12 === 0 ? 12 : hours % 12;
+  const timeString = `${formattedHours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')} ${ampm}`;
+  const displayTime = `DÍA ${gameDay} - ${timeString}`;
+
   useEffect(() => {
     if (newsRef.current) {
       newsRef.current.scrollTop = newsRef.current.scrollHeight;
@@ -304,8 +313,8 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
             color="bg-purple-500" 
           />
           <StatCard 
-            label={t.day} 
-            value={gameMode === GameMode.Tutorial ? t.learning : stats.day} 
+            label={t.day || 'TIEMPO'} 
+            value={gameMode === GameMode.Tutorial ? t.learning : displayTime} 
             icon={Calendar} 
             color="bg-slate-500" 
           />
