@@ -21,6 +21,10 @@ interface StartScreenProps {
 const StartScreen: React.FC<StartScreenProps> = ({ onStart, saveSlots, userProgress, onSignIn, onSignOut, language, setLanguage }) => {
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [name, setName] = useState('');
+  const [licenseKey, setLicenseKey] = useState('');
+  const [hasLicense, setHasLicense] = useState<boolean>(() => {
+    return localStorage.getItem('optistock_pro_license') === 'valid';
+  });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const t = translations[language].startScreen;
@@ -34,6 +38,45 @@ const StartScreen: React.FC<StartScreenProps> = ({ onStart, saveSlots, userProgr
       await onSignIn(name);
     } catch (err: any) {
       setError(err.message || 'Identification failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLicenseSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!licenseKey.trim()) return;
+    setError('');
+    setLoading(true);
+    
+    // Admin / Developer Bypass
+    if (licenseKey === 'OPTI-ADMIN-2026') {
+      localStorage.setItem('optistock_pro_license', 'valid');
+      setHasLicense(true);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // NOTE: Replace 'YOUR_GUMROAD_PRODUCT_PERMALINK' with your actual Gumroad product permalink
+      const res = await fetch('https://api.gumroad.com/v2/licenses/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product_permalink: 'optistockpro', // Placeholder - CHANGE THIS IN PRODUCTION
+          license_key: licenseKey
+        })
+      });
+      const data = await res.json();
+      
+      if (data.success && !data.purchase.refunded) {
+        localStorage.setItem('optistock_pro_license', 'valid');
+        setHasLicense(true);
+      } else {
+        setError(data.message || 'Invalid license key');
+      }
+    } catch (err) {
+      setError('Verification failed. Check your internet connection.');
     } finally {
       setLoading(false);
     }
@@ -98,7 +141,49 @@ const StartScreen: React.FC<StartScreenProps> = ({ onStart, saveSlots, userProgr
             </div>
           </div>
 
-          {!userProgress ? (
+          {!hasLicense ? (
+             <div className="bg-slate-800/40 p-8 rounded-[2rem] border border-slate-700/50 backdrop-blur-md max-w-md mx-auto my-12 shadow-2xl shadow-yellow-500/10">
+                <h3 className="text-2xl font-black mb-2 flex items-center gap-3">
+                  <ShieldCheck className="w-8 h-8 text-yellow-500" />
+                  Product Activation
+                </h3>
+                <p className="text-slate-400 text-sm mb-8 leading-relaxed">
+                  Enter your Gumroad license key to verify your purchase and permanently unlock Optistock Pro on this device.
+                </p>
+
+                <form onSubmit={handleLicenseSubmit} className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">License Key</label>
+                    <div className="relative">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                      <input 
+                        type="text" 
+                        required
+                        value={licenseKey}
+                        onChange={(e) => setLicenseKey(e.target.value)}
+                        placeholder="XXXX-XXXX-XXXX-XXXX"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-2xl py-4 pl-12 pr-4 font-mono text-sm tracking-widest focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 outline-none transition-all placeholder:text-slate-700"
+                      />
+                    </div>
+                  </div>
+
+                  {error && (
+                    <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs font-bold text-center">
+                      {error}
+                    </div>
+                  )}
+
+                  <button 
+                    type="submit"
+                    disabled={loading || !licenseKey.trim()}
+                    className="w-full bg-yellow-500 hover:bg-yellow-400 disabled:bg-slate-700 text-slate-900 py-5 rounded-2xl font-black text-sm transition-all shadow-xl shadow-yellow-500/10 flex items-center justify-center gap-2 uppercase tracking-widest"
+                  >
+                    {loading ? 'Verifying...' : 'Verify & Unlock'}
+                    {!loading && <ArrowRight className="w-5 h-5" />}
+                  </button>
+                </form>
+             </div>
+          ) : !userProgress ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center py-10">
               <div className="hidden lg:block">
                 <div className="w-20 h-20 bg-yellow-500/10 rounded-3xl flex items-center justify-center mb-8 border border-yellow-500/20">
