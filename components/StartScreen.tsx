@@ -63,7 +63,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onStart, saveSlots, userProgr
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          product_permalink: 'optistockpro', // Placeholder - CHANGE THIS IN PRODUCTION
+          product_permalink: 'Optistock', // cristianjcanom.gumroad.com/l/Optistock
           license_key: licenseKey
         })
       });
