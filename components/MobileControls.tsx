@@ -88,12 +88,12 @@ const MobileControls = () => {
   };
 
   return (
-    <div className="absolute inset-0 pointer-events-none z-50 flex items-end justify-between p-8 pb-16 touch-none">
+    <div className="absolute inset-0 pointer-events-none z-50 flex items-end justify-between p-4 pb-8 md:p-8 md:pb-16 touch-none">
       {/* Left side: Joystick */}
       <div className="pointer-events-auto">
         <div 
           ref={joystickRef}
-          className="w-32 h-32 md:w-40 md:h-40 bg-white/10 border-2 border-white/20 rounded-full flex items-center justify-center relative backdrop-blur-md shadow-2xl"
+          className="w-24 h-24 sm:w-28 sm:h-28 md:w-40 md:h-40 bg-white/10 border-2 border-white/20 rounded-full flex items-center justify-center relative backdrop-blur-md shadow-2xl"
           onMouseDown={handleTouchStart}
           onMouseMove={handleTouchMove}
           onMouseUp={handleTouchEnd}
@@ -105,18 +105,18 @@ const MobileControls = () => {
         >
           <div 
             ref={knobRef}
-            className="w-16 h-16 bg-yellow-400/80 rounded-full shadow-[0_0_15px_rgba(250,204,21,0.5)] border-2 border-yellow-500 absolute transition-transform duration-75 ease-out"
+            className="w-12 h-12 sm:w-14 sm:h-14 bg-yellow-400/80 rounded-full shadow-[0_0_15px_rgba(250,204,21,0.5)] border-2 border-yellow-500 absolute transition-transform duration-75 ease-out"
           />
         </div>
       </div>
 
       {/* Right side: Action Buttons */}
-      <div className="flex gap-4 pointer-events-auto">
+      <div className="flex gap-2 sm:gap-4 pointer-events-auto items-end">
         {/* Forks Down */}
         <button
-          className="w-16 h-16 bg-blue-500/50 rounded-full border-2 border-blue-400 text-white font-black text-xl flex items-center justify-center backdrop-blur-md active:scale-95 transition-transform"
-          onTouchStart={() => simulateKeyEvent('keydown', 'e')}
-          onTouchEnd={() => simulateKeyEvent('keyup', 'e')}
+          className="w-12 h-12 sm:w-14 sm:h-14 bg-blue-500/50 rounded-full border border-blue-400 text-white font-black text-lg flex items-center justify-center backdrop-blur-md active:scale-95 transition-transform"
+          onTouchStart={(e) => { e.preventDefault(); simulateKeyEvent('keydown', 'e'); }}
+          onTouchEnd={(e) => { e.preventDefault(); simulateKeyEvent('keyup', 'e'); }}
           onMouseDown={() => simulateKeyEvent('keydown', 'e')}
           onMouseUp={() => simulateKeyEvent('keyup', 'e')}
         >
@@ -124,9 +124,9 @@ const MobileControls = () => {
         </button>
         {/* Forks Up */}
         <button
-          className="w-16 h-16 bg-blue-500/50 rounded-full border-2 border-blue-400 text-white font-black text-xl flex items-center justify-center backdrop-blur-md active:scale-95 transition-transform"
-          onTouchStart={() => simulateKeyEvent('keydown', 'q')}
-          onTouchEnd={() => simulateKeyEvent('keyup', 'q')}
+          className="w-12 h-12 sm:w-14 sm:h-14 bg-blue-500/50 rounded-full border border-blue-400 text-white font-black text-lg flex items-center justify-center backdrop-blur-md active:scale-95 transition-transform"
+          onTouchStart={(e) => { e.preventDefault(); simulateKeyEvent('keydown', 'q'); }}
+          onTouchEnd={(e) => { e.preventDefault(); simulateKeyEvent('keyup', 'q'); }}
           onMouseDown={() => simulateKeyEvent('keydown', 'q')}
           onMouseUp={() => simulateKeyEvent('keyup', 'q')}
         >
@@ -134,9 +134,9 @@ const MobileControls = () => {
         </button>
         {/* Action (Space) */}
         <button
-          className="w-20 h-20 bg-yellow-500/50 rounded-full border-2 border-yellow-400 text-white font-black text-2xl flex items-center justify-center backdrop-blur-md active:scale-95 transition-transform"
-          onTouchStart={() => simulateKeyEvent('keydown', ' ')}
-          onTouchEnd={() => simulateKeyEvent('keyup', ' ')}
+          className="w-14 h-14 sm:w-16 sm:h-16 bg-yellow-500/50 rounded-full border-2 border-yellow-400 text-white font-black text-xl flex items-center justify-center backdrop-blur-md active:scale-95 transition-transform"
+          onTouchStart={(e) => { e.preventDefault(); simulateKeyEvent('keydown', ' '); }}
+          onTouchEnd={(e) => { e.preventDefault(); simulateKeyEvent('keyup', ' '); }}
           onMouseDown={() => simulateKeyEvent('keydown', ' ')}
           onMouseUp={() => simulateKeyEvent('keyup', ' ')}
         >

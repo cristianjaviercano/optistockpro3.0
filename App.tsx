@@ -810,7 +810,7 @@ function App() {
   }, [carryingPallet, addNewsItem, currentTask, forksLevel, playDropSound, playPickSound, playCoinSound, playLevelUpSound, tMsg, activeChallenge, challengeTimer]);
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden selection:bg-transparent selection:text-transparent bg-slate-900">
+    <div className="relative w-[100dvw] h-[100dvh] overflow-hidden selection:bg-transparent selection:text-transparent bg-slate-900">
       <IsoMap 
         grid={grid} 
         onTileClick={handleTileClick} 
