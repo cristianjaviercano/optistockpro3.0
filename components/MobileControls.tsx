@@ -1,6 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { Fuel } from 'lucide-react';
 
-const MobileControls = () => {
+interface MobileControlsProps {
+  onBuyFuel: () => void;
+  showRefuel: boolean;
+}
+
+const MobileControls: React.FC<MobileControlsProps> = ({ onBuyFuel, showRefuel }) => {
   const [active, setActive] = useState(false);
   const joystickRef = useRef<HTMLDivElement>(null);
   const knobRef = useRef<HTMLDivElement>(null);
@@ -110,38 +116,52 @@ const MobileControls = () => {
         </div>
       </div>
 
-      {/* Right side: Action Buttons */}
-      <div className="flex gap-2 sm:gap-4 pointer-events-auto items-end">
-        {/* Forks Down */}
-        <button
-          className="w-12 h-12 sm:w-14 sm:h-14 bg-blue-500/50 rounded-full border border-blue-400 text-white font-black text-lg flex items-center justify-center backdrop-blur-md active:scale-95 transition-transform"
-          onTouchStart={(e) => { e.preventDefault(); simulateKeyEvent('keydown', 'e'); }}
-          onTouchEnd={(e) => { e.preventDefault(); simulateKeyEvent('keyup', 'e'); }}
-          onMouseDown={() => simulateKeyEvent('keydown', 'e')}
-          onMouseUp={() => simulateKeyEvent('keyup', 'e')}
-        >
-          ⬇
-        </button>
-        {/* Forks Up */}
-        <button
-          className="w-12 h-12 sm:w-14 sm:h-14 bg-blue-500/50 rounded-full border border-blue-400 text-white font-black text-lg flex items-center justify-center backdrop-blur-md active:scale-95 transition-transform"
-          onTouchStart={(e) => { e.preventDefault(); simulateKeyEvent('keydown', 'q'); }}
-          onTouchEnd={(e) => { e.preventDefault(); simulateKeyEvent('keyup', 'q'); }}
-          onMouseDown={() => simulateKeyEvent('keydown', 'q')}
-          onMouseUp={() => simulateKeyEvent('keyup', 'q')}
-        >
-          ⬆
-        </button>
-        {/* Action (Space) */}
-        <button
-          className="w-14 h-14 sm:w-16 sm:h-16 bg-yellow-500/50 rounded-full border-2 border-yellow-400 text-white font-black text-xl flex items-center justify-center backdrop-blur-md active:scale-95 transition-transform"
-          onTouchStart={(e) => { e.preventDefault(); simulateKeyEvent('keydown', ' '); }}
-          onTouchEnd={(e) => { e.preventDefault(); simulateKeyEvent('keyup', ' '); }}
-          onMouseDown={() => simulateKeyEvent('keydown', ' ')}
-          onMouseUp={() => simulateKeyEvent('keyup', ' ')}
-        >
-          A
-        </button>
+      {/* Right side: Action Buttons & Refuel */}
+      <div className="flex flex-col gap-2.5 pointer-events-auto items-end">
+        {/* Refuel Button (Fuel Pump) */}
+        {showRefuel && (
+          <button
+            onClick={onBuyFuel}
+            onTouchStart={(e) => { e.preventDefault(); onBuyFuel(); }}
+            className="w-12 h-12 sm:w-14 sm:h-14 bg-yellow-500 hover:bg-yellow-400 text-slate-900 rounded-full border-2 border-yellow-500 flex items-center justify-center backdrop-blur-md active:scale-95 transition-transform shadow-lg shadow-yellow-500/20"
+            title="Refuel / Recargar"
+          >
+            <Fuel className="w-5 h-5" />
+          </button>
+        )}
+
+        <div className="flex gap-2 sm:gap-4 items-end">
+          {/* Forks Down */}
+          <button
+            className="w-12 h-12 sm:w-14 sm:h-14 bg-blue-500/50 rounded-full border border-blue-400 text-white font-black text-lg flex items-center justify-center backdrop-blur-md active:scale-95 transition-transform"
+            onTouchStart={(e) => { e.preventDefault(); simulateKeyEvent('keydown', 'e'); }}
+            onTouchEnd={(e) => { e.preventDefault(); simulateKeyEvent('keyup', 'e'); }}
+            onMouseDown={() => simulateKeyEvent('keydown', 'e')}
+            onMouseUp={() => simulateKeyEvent('keyup', 'e')}
+          >
+            ⬇
+          </button>
+          {/* Forks Up */}
+          <button
+            className="w-12 h-12 sm:w-14 sm:h-14 bg-blue-500/50 rounded-full border border-blue-400 text-white font-black text-lg flex items-center justify-center backdrop-blur-md active:scale-95 transition-transform"
+            onTouchStart={(e) => { e.preventDefault(); simulateKeyEvent('keydown', 'q'); }}
+            onTouchEnd={(e) => { e.preventDefault(); simulateKeyEvent('keyup', 'q'); }}
+            onMouseDown={() => simulateKeyEvent('keydown', 'q')}
+            onMouseUp={() => simulateKeyEvent('keyup', 'q')}
+          >
+            ⬆
+          </button>
+          {/* Action (Space) */}
+          <button
+            className="w-14 h-14 sm:w-16 sm:h-16 bg-yellow-500/50 rounded-full border-2 border-yellow-400 text-white font-black text-xl flex items-center justify-center backdrop-blur-md active:scale-95 transition-transform"
+            onTouchStart={(e) => { e.preventDefault(); simulateKeyEvent('keydown', ' '); }}
+            onTouchEnd={(e) => { e.preventDefault(); simulateKeyEvent('keyup', ' '); }}
+            onMouseDown={() => simulateKeyEvent('keydown', ' ')}
+            onMouseUp={() => simulateKeyEvent('keyup', ' ')}
+          >
+            A
+          </button>
+        </div>
       </div>
     </div>
   );

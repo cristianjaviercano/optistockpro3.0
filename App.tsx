@@ -876,7 +876,10 @@ function App() {
       )}
 
       {gameStarted && isTouchDevice && (gameMode === GameMode.Forklift || gameMode === GameMode.Tutorial) && (
-        <MobileControls />
+        <MobileControls 
+          onBuyFuel={buyFuel} 
+          showRefuel={gameMode === GameMode.Forklift}
+        />
       )}
 
       <style>{`
