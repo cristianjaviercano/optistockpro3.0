@@ -65,6 +65,7 @@ interface UIOverlayProps {
   setLanguage: (lang: Language) => void;
   xpGain: { amount: number, id: number } | null;
   moneyGain: { amount: number, id: number } | null;
+  isTouchDevice: boolean;
 }
 
 const tools = [
@@ -118,32 +119,32 @@ const ToolButton: React.FC<{
       disabled={!isBulldoze && !canAfford}
       className={`
         relative flex flex-col items-center justify-center rounded-xl border-2 transition-all shadow-lg backdrop-blur-md flex-shrink-0
-        w-16 h-16 md:w-20 md:h-20
+        w-16 h-16 lg:w-20 lg:h-20
         ${isSelected ? 'border-yellow-400 bg-yellow-400/20 scale-110 z-10' : 'border-slate-700 bg-slate-900/80 hover:bg-slate-800'}
         ${!isBulldoze && !canAfford ? 'opacity-50 cursor-not-allowed grayscale' : 'cursor-pointer'}
       `}
       title={description}
     >
-      <div className="w-8 h-8 md:w-10 md:h-10 rounded mb-1 border border-black/30 shadow-inner flex items-center justify-center overflow-hidden" style={{ backgroundColor: isBulldoze ? 'transparent' : config.color }}>
+      <div className="w-8 h-8 lg:w-10 lg:h-10 rounded mb-1 border border-black/30 shadow-inner flex items-center justify-center overflow-hidden" style={{ backgroundColor: isBulldoze ? 'transparent' : config.color }}>
         {isBulldoze && <Hammer className="w-6 h-6 text-red-500" />}
         {!isBulldoze && type === BuildingType.Floor && <div className="w-full h-full bg-slate-600 opacity-50"></div>}
       </div>
-      <span className="text-[8px] md:text-[10px] font-bold text-slate-200 uppercase tracking-wider leading-none text-center">{name}</span>
+      <span className="text-[8px] lg:text-[10px] font-bold text-slate-200 uppercase tracking-wider leading-none text-center">{name}</span>
       {config.cost > 0 && (
-        <span className={`text-[8px] md:text-[10px] font-mono leading-none mt-1 ${canAfford ? 'text-green-400' : 'text-red-400'}`}>${config.cost}</span>
+        <span className={`text-[8px] lg:text-[10px] font-mono leading-none mt-1 ${canAfford ? 'text-green-400' : 'text-red-400'}`}>${config.cost}</span>
       )}
     </button>
   );
 };
 
 const StatCard = ({ label, value, icon: Icon, color }: { label: string, value: string | number, icon: any, color: string }) => (
-  <div className="bg-slate-900/90 text-white p-1 md:p-1.5 rounded-lg border border-slate-700 shadow-xl backdrop-blur-md flex items-center gap-1.5 min-w-[80px] md:min-w-[100px]">
-    <div className={`p-1 rounded-md ${color} bg-opacity-20`}>
-      <Icon className={`w-3 h-3 md:w-3.5 md:h-3.5 ${color.replace('bg-', 'text-')}`} />
+  <div className="bg-slate-900/90 text-white p-1 lg:p-1.5 rounded-lg border border-slate-700 shadow-xl backdrop-blur-md flex items-center gap-1 lg:gap-1.5 min-w-[70px] lg:min-w-[100px] flex-shrink-0">
+    <div className={`p-0.5 lg:p-1 rounded-md ${color} bg-opacity-20 flex-shrink-0`}>
+      <Icon className={`w-2.5 h-2.5 lg:w-3.5 lg:h-3.5 ${color.replace('bg-', 'text-')}`} />
     </div>
     <div className="flex flex-col">
-      <span className="text-[6px] md:text-[7px] text-slate-400 uppercase font-black tracking-widest leading-none mb-0.5">{label}</span>
-      <span className="text-[10px] md:text-xs font-black font-mono leading-none">{value}</span>
+      <span className="text-[5px] lg:text-[7px] text-slate-400 uppercase font-black tracking-widest leading-none mb-0.5">{label}</span>
+      <span className="text-[9px] lg:text-xs font-black font-mono leading-none">{value}</span>
     </div>
   </div>
 );
@@ -173,10 +174,94 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
   language,
   setLanguage,
   xpGain,
-  moneyGain
+  moneyGain,
+  isTouchDevice
 }) => {
   const newsRef = useRef<HTMLDivElement>(null);
   const t = translations[language].ui;
+
+  const [isMobile, setIsMobile] = useState(isTouchDevice || (typeof window !== 'undefined' && window.innerWidth < 1024));
+  const [isIntercomCollapsed, setIsIntercomCollapsed] = useState(isTouchDevice || (typeof window !== 'undefined' && window.innerWidth < 1024));
+  const [isTaskCollapsed, setIsTaskCollapsed] = useState(isTouchDevice || (typeof window !== 'undefined' && window.innerWidth < 1024));
+  const [isMissionsCollapsed, setIsMissionsCollapsed] = useState(isTouchDevice || (typeof window !== 'undefined' && window.innerWidth < 1024));
+  const [showMobileIntercom, setShowMobileIntercom] = useState(false);
+  const [showMobileTasks, setShowMobileTasks] = useState(true);
+
+  const intercomTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const tasksTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastNewsIdRef = useRef<string>('');
+  const lastTaskHashRef = useRef<string>('');
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = isTouchDevice || window.innerWidth < 1024;
+      setIsMobile(mobile);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [isTouchDevice]);
+
+  // Auto-collapse when switching to mobile layout
+  useEffect(() => {
+    if (isMobile) {
+      setIsIntercomCollapsed(true);
+      setIsTaskCollapsed(true);
+      setIsMissionsCollapsed(true);
+    }
+  }, [isMobile]);
+
+  // Auto-show and auto-hide intercom on new message
+  useEffect(() => {
+    if (isMobile && newsFeed.length > 0) {
+      const lastItem = newsFeed[newsFeed.length - 1];
+      if (lastItem && lastItem.id !== lastNewsIdRef.current) {
+        lastNewsIdRef.current = lastItem.id;
+        
+        setShowMobileIntercom(true);
+        
+        if (intercomTimeoutRef.current) {
+          clearTimeout(intercomTimeoutRef.current);
+        }
+        
+        intercomTimeoutRef.current = setTimeout(() => {
+          setShowMobileIntercom(false);
+        }, 5000);
+      }
+    }
+    
+    return () => {
+      if (intercomTimeoutRef.current) {
+        clearTimeout(intercomTimeoutRef.current);
+      }
+    };
+  }, [newsFeed, isMobile]);
+
+  // Auto-show and auto-hide tasks on task start/update
+  useEffect(() => {
+    if (isMobile && (currentTask || activeChallenge)) {
+      const taskHash = `${currentTask?.text || ''}-${currentTask?.current || 0}-${activeChallenge?.id || ''}`;
+      if (taskHash !== lastTaskHashRef.current) {
+        lastTaskHashRef.current = taskHash;
+        
+        setShowMobileTasks(true);
+
+        if (tasksTimeoutRef.current) {
+          clearTimeout(tasksTimeoutRef.current);
+        }
+
+        tasksTimeoutRef.current = setTimeout(() => {
+          setShowMobileTasks(false);
+        }, 5000);
+      }
+    }
+
+    return () => {
+      if (tasksTimeoutRef.current) {
+        clearTimeout(tasksTimeoutRef.current);
+      }
+    };
+  }, [currentTask, activeChallenge, isMobile]);
 
   const gameDay = Math.floor(stats.time / (24 * 60)) + 1;
   const totalMinutes = stats.time % (24 * 60);
@@ -188,7 +273,7 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
   const displayTime = `DÍA ${gameDay} - ${timeString}`;
 
   const simulateKey = (key: string, isDown: boolean) => {
-    window.dispatchEvent(new CustomEvent(isDown ? 'virtual-keydown' : 'virtual-keyup', { detail: { key } }));
+    window.dispatchEvent(new CustomEvent(isDown ? 'virtual-keydown' : 'virtual-keyup', { detail: key }));
   };
 
   useEffect(() => {
@@ -201,7 +286,7 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
     <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-4 font-sans z-10">
       
       {/* Top Bar: Stats & Task */}
-      <div className="flex flex-col md:flex-row md:justify-between md:items-start pointer-events-auto gap-4 w-full">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start pointer-events-auto gap-2 lg:gap-4 w-full">
         
           {/* XP Gain Animation */}
           <AnimatePresence>
@@ -224,7 +309,7 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
 
         {/* Logo & Actions */}
         <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2 bg-slate-900/80 p-1.5 pr-4 rounded-lg border border-slate-700 backdrop-blur-md">
+          <div className="hidden lg:flex items-center gap-2 bg-slate-900/80 p-1.5 pr-4 rounded-lg border border-slate-700 backdrop-blur-md">
             <div className="p-1.5 bg-yellow-500 rounded-md">
               <Package className="w-4 h-4 text-slate-900" />
             </div>
@@ -272,31 +357,45 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
             )}
             <button 
               onClick={onSave}
-              className="p-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 backdrop-blur-md transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest"
+              className="p-1.5 lg:p-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 backdrop-blur-md transition-all flex items-center gap-1.5 lg:gap-2 text-[9px] lg:text-[10px] font-bold uppercase tracking-widest"
             >
               <Save className="w-3 h-3" />
               {t.save}
             </button>
             <button 
               onClick={onExit}
-              className="p-2 bg-red-900/40 hover:bg-red-900/60 text-red-200 rounded-lg border border-red-500/30 backdrop-blur-md transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest"
+              className="p-1.5 lg:p-2 bg-red-900/40 hover:bg-red-900/60 text-red-200 rounded-lg border border-red-500/30 backdrop-blur-md transition-all flex items-center gap-1.5 lg:gap-2 text-[9px] lg:text-[10px] font-bold uppercase tracking-widest"
             >
               <LogOut className="w-3 h-3" />
               {t.mainMenu}
+            </button>
+            <button 
+              onClick={() => setShowMobileIntercom(prev => !prev)}
+              className={`p-1.5 rounded-lg border backdrop-blur-md transition-all flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest lg:hidden active:scale-95 ${showMobileIntercom ? 'bg-blue-600 border-blue-400 text-white' : 'bg-blue-900/50 hover:bg-blue-900/80 border-blue-500/30 text-blue-200'}`}
+            >
+              <Radio className={`w-3 h-3 ${showMobileIntercom ? 'animate-pulse text-white' : 'text-blue-400'}`} />
+              <span>{showMobileIntercom ? (language === 'es' ? 'Mensajes' : 'Logs') : 'Intercom'}</span>
+            </button>
+            <button 
+              onClick={() => setShowMobileTasks(prev => !prev)}
+              className={`p-1.5 rounded-lg border backdrop-blur-md transition-all flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest lg:hidden active:scale-95 ${showMobileTasks ? 'bg-yellow-600 border-yellow-400 text-white' : 'bg-slate-800/80 hover:bg-slate-700 border-slate-700 text-slate-300'}`}
+            >
+              <Target className={`w-3 h-3 ${showMobileTasks && (activeChallenge || currentTask) ? 'animate-bounce text-white' : 'text-yellow-400'}`} />
+              <span>{language === 'es' ? 'Tareas' : 'Tasks'}</span>
             </button>
           </div>
         </div>
         
         {/* Stats Row */}
-        <div className="flex flex-wrap gap-2 md:gap-4">
+        <div className="flex flex-row overflow-x-auto no-scrollbar gap-1.5 lg:gap-4 max-w-full pb-1 flex-nowrap">
           {userProgress && (
-            <div className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white p-1.5 md:p-2 rounded-lg border border-blue-400 shadow-xl backdrop-blur-md flex items-center gap-2 min-w-[90px] md:min-w-[110px]">
+            <div className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white p-1.5 lg:p-2 rounded-lg border border-blue-400 shadow-xl backdrop-blur-md flex items-center gap-2 min-w-[90px] lg:min-w-[110px]">
               <div className="p-1.5 rounded-md bg-white/20">
-                <Trophy className="w-3.5 h-3.5 md:w-4 md:h-4 text-yellow-300" />
+                <Trophy className="w-3.5 h-3.5 lg:w-4 lg:h-4 text-yellow-300" />
               </div>
               <div className="flex flex-col">
-                <span className="text-[7px] md:text-[8px] text-blue-100 uppercase font-bold tracking-widest leading-none mb-0.5">{t.operatorLvl}</span>
-                <span className="text-xs md:text-sm font-black font-mono leading-none">{userProgress.level} <span className="text-[8px] opacity-70">({userProgress.totalScore} XP)</span></span>
+                <span className="text-[7px] lg:text-[8px] text-blue-100 uppercase font-bold tracking-widest leading-none mb-0.5">{t.operatorLvl}</span>
+                <span className="text-xs lg:text-sm font-black font-mono leading-none">{userProgress.level} <span className="text-[8px] opacity-70">({userProgress.totalScore} XP)</span></span>
               </div>
             </div>
           )}
@@ -350,29 +449,37 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
           />
         </div>
 
-        {/* Task Panel */}
-        <div className="flex flex-col gap-2">
+        {/* Task Panel (Desktop version: shown only on lg+) */}
+        <div className="hidden lg:flex flex-col gap-2">
           <AnimatePresence mode="wait">
             {activeChallenge && (
               <motion.div 
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
-                className="w-full md:w-80 bg-red-900/95 text-white rounded-xl border-2 border-red-500 shadow-2xl backdrop-blur-md overflow-hidden"
+                className="w-[280px] sm:w-80 bg-red-900/95 text-white rounded-xl border-2 border-red-500 shadow-2xl backdrop-blur-md overflow-hidden"
               >
-                <div className="bg-red-600 px-4 py-2 flex justify-between items-center">
+                <div 
+                  onClick={() => setIsTaskCollapsed(prev => !prev)}
+                  className="bg-red-600 px-4 py-2 flex justify-between items-center cursor-pointer select-none hover:bg-red-500 transition-colors"
+                >
                   <span className="font-bold uppercase text-xs tracking-widest flex items-center gap-2">
                     <Timer className="w-4 h-4" />
                     {t.missionActive}
                   </span>
-                  <span className="text-lg font-black font-mono">
-                    {Math.floor(challengeTimer / 60)}:{(challengeTimer % 60).toString().padStart(2, '0')}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-black font-mono">
+                      {Math.floor(challengeTimer / 60)}:{(challengeTimer % 60).toString().padStart(2, '0')}
+                    </span>
+                    {isTaskCollapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+                  </div>
                 </div>
-                <div className="p-3">
-                  <h4 className="text-xs font-black uppercase text-red-200 mb-1">{translations[language].challenges[`${activeChallenge.id}Title` as keyof typeof translations['en']['challenges']] || activeChallenge.title}</h4>
-                  <p className="text-[10px] leading-tight opacity-80">{translations[language].challenges[`${activeChallenge.id}Desc` as keyof typeof translations['en']['challenges']] || activeChallenge.description}</p>
-                </div>
+                {!isTaskCollapsed && (
+                  <div className="p-3">
+                    <h4 className="text-xs font-black uppercase text-red-200 mb-1">{translations[language].challenges[`${activeChallenge.id}Title` as keyof typeof translations['en']['challenges']] || activeChallenge.title}</h4>
+                    <p className="text-[10px] leading-tight opacity-80">{translations[language].challenges[`${activeChallenge.id}Desc` as keyof typeof translations['en']['challenges']] || activeChallenge.description}</p>
+                  </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
@@ -383,25 +490,33 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
-                className="w-full md:w-80 bg-slate-900/95 text-white rounded-xl border-2 border-yellow-500/50 shadow-2xl backdrop-blur-md overflow-hidden"
+                className="w-[280px] sm:w-80 bg-slate-900/95 text-white rounded-xl border-2 border-yellow-500/50 shadow-2xl backdrop-blur-md overflow-hidden"
               >
-                <div className="bg-yellow-500/20 px-4 py-2 flex justify-between items-center border-b border-yellow-500/30">
+                <div 
+                  onClick={() => setIsTaskCollapsed(prev => !prev)}
+                  className="bg-yellow-500/20 px-4 py-2 flex justify-between items-center border-b border-yellow-500/30 cursor-pointer select-none hover:bg-yellow-600/20 transition-colors"
+                >
                   <span className="font-bold uppercase text-xs tracking-widest flex items-center gap-2">
                     <Info className="w-4 h-4 text-yellow-400" />
                     {t.currentTask}
                   </span>
-                  <span className="text-xs font-mono text-yellow-400">{currentTask.current}/{currentTask.target}</span>
-                </div>
-                <div className="p-4">
-                  <p className="text-sm font-medium text-slate-100 mb-3">"{currentTask.text}"</p>
-                  <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-                    <motion.div 
-                      className="bg-yellow-500 h-full"
-                      initial={{ width: 0 }}
-                      animate={{ width: `${(currentTask.current / currentTask.target) * 100}%` }}
-                    />
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono text-yellow-400">{currentTask.current}/{currentTask.target}</span>
+                    {isTaskCollapsed ? <ChevronDown className="w-3.5 h-3.5 text-yellow-400" /> : <ChevronUp className="w-3.5 h-3.5 text-yellow-400" />}
                   </div>
                 </div>
+                {!isTaskCollapsed && (
+                  <div className="p-4">
+                    <p className="text-sm font-medium text-slate-100 mb-3">"{currentTask.text}"</p>
+                    <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                      <motion.div 
+                        className="bg-yellow-500 h-full"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(currentTask.current / currentTask.target) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
@@ -455,13 +570,13 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
       )}
 
       {/* Bottom Bar: Tools & News */}
-      <div className="flex flex-col-reverse md:flex-row md:justify-between md:items-end pointer-events-auto mt-auto gap-4">
+      <div className="flex flex-col-reverse lg:flex-row lg:justify-between lg:items-end pointer-events-auto mt-auto gap-4">
         
         {/* Left: Tools & News */}
         <div className="flex flex-col gap-4">
           <div className="flex gap-2">
             {/* Control Panel */}
-            {(gameMode === GameMode.Forklift || gameMode === GameMode.Tutorial) && (
+            {(gameMode === GameMode.Forklift || gameMode === GameMode.Tutorial) && !isTouchDevice && (
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -558,38 +673,46 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
-                  className="bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-white/10 shadow-2xl w-full md:w-64"
+                  className="bg-slate-900/90 backdrop-blur-md rounded-2xl border border-white/10 shadow-2xl w-[280px] sm:w-64 overflow-hidden animate-fade-in"
                 >
-                  <div className="flex items-center gap-2 mb-3">
-                    <Target className="w-4 h-4 text-red-400" />
-                    <span className="text-white text-xs font-black uppercase tracking-widest">{t.availableMissions}</span>
+                  <div 
+                    onClick={() => setIsMissionsCollapsed(prev => !prev)}
+                    className="flex items-center justify-between bg-slate-800/50 p-3 cursor-pointer select-none hover:bg-slate-800 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Target className="w-4 h-4 text-red-400" />
+                      <span className="text-white text-xs font-black uppercase tracking-widest">{t.availableMissions}</span>
+                    </div>
+                    {isMissionsCollapsed ? <ChevronDown className="w-3.5 h-3.5 text-slate-400" /> : <ChevronUp className="w-3.5 h-3.5 text-slate-400" />}
                   </div>
-                  <div className="space-y-2">
-                    {CHALLENGES.filter(c => c.slotId === currentSlotId).map(challenge => {
-                      const isCompleted = userProgress?.completedChallenges.includes(challenge.id);
-                      return (
-                        <button
-                          key={challenge.id}
-                          onClick={() => onStartChallenge(challenge)}
-                          disabled={!!activeChallenge}
-                          className={`
-                            w-full text-left p-2 rounded-xl border transition-all group
-                            ${isCompleted ? 'bg-green-500/10 border-green-500/30' : 'bg-slate-800 border-slate-700 hover:border-yellow-500/50'}
-                            ${activeChallenge ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-                          `}
-                        >
-                          <div className="flex justify-between items-start mb-1">
-                            <span className="text-[10px] font-black text-white uppercase truncate">{translations[language].challenges[`${challenge.id}Title` as keyof typeof translations['en']['challenges']] || challenge.title}</span>
-                            {isCompleted && <CheckCircle2 className="w-3 h-3 text-green-400" />}
-                          </div>
-                          <div className="flex justify-between items-center text-[8px] font-bold uppercase tracking-tighter">
-                            <span className="text-slate-400">{challenge.targetPallets} {t.pallets}</span>
-                            <span className="text-yellow-500">{challenge.baseScore} XP</span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {!isMissionsCollapsed && (
+                    <div className="p-4 pt-0 space-y-2 max-h-48 overflow-y-auto custom-scrollbar mt-2">
+                      {CHALLENGES.filter(c => c.slotId === currentSlotId).map(challenge => {
+                        const isCompleted = userProgress?.completedChallenges.includes(challenge.id);
+                        return (
+                          <button
+                            key={challenge.id}
+                            onClick={() => onStartChallenge(challenge)}
+                            disabled={!!activeChallenge}
+                            className={`
+                              w-full text-left p-2 rounded-xl border transition-all group
+                              ${isCompleted ? 'bg-green-500/10 border-green-500/30' : 'bg-slate-800 border-slate-700 hover:border-yellow-500/50'}
+                              ${activeChallenge ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                            `}
+                          >
+                            <div className="flex justify-between items-start mb-1">
+                              <span className="text-[10px] font-black text-white uppercase truncate">{translations[language].challenges[`${challenge.id}Title` as keyof typeof translations['en']['challenges']] || challenge.title}</span>
+                              {isCompleted && <CheckCircle2 className="w-3 h-3 text-green-400" />}
+                            </div>
+                            <div className="flex justify-between items-center text-[8px] font-bold uppercase tracking-tighter">
+                              <span className="text-slate-400">{challenge.targetPallets} {t.pallets}</span>
+                              <span className="text-yellow-500">{challenge.baseScore} XP</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </motion.div>
               </div>
             )}
@@ -621,16 +744,22 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
         </div>
 
         {/* Right: News Feed / Intercom */}
-        <div className="w-full md:w-96 h-48 md:h-64 bg-slate-950/90 text-white rounded-2xl border border-slate-800 backdrop-blur-xl shadow-2xl flex flex-col overflow-hidden relative">
-          <div className="bg-slate-900/80 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 border-b border-slate-800 flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <Radio className="w-3 h-3 text-blue-400 animate-pulse" />
-              <span>{t.intercom}</span>
+        <div className={`hidden lg:flex w-full lg:w-96 transition-all duration-300 bg-slate-950/90 text-white rounded-2xl border border-slate-800 backdrop-blur-xl shadow-2xl flex-col overflow-hidden relative ${isIntercomCollapsed ? 'h-10' : 'h-48 lg:h-64'}`}>
+          <div 
+            onClick={() => setIsIntercomCollapsed(prev => !prev)}
+            className="bg-slate-900/80 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 border-b border-slate-800 flex justify-between items-center cursor-pointer hover:bg-slate-800/80 transition-colors select-none"
+          >
+            <div className="flex items-center gap-2 overflow-hidden flex-1 mr-2">
+              <Radio className="w-3 h-3 text-blue-400 flex-shrink-0 animate-pulse" />
+              <span className="flex-shrink-0">{t.intercom}</span>
+              {isIntercomCollapsed && newsFeed.length > 0 && (
+                <span className="ml-2 text-[9px] text-blue-300 font-mono normal-case truncate max-w-[150px] lg:max-w-[200px] animate-pulse">
+                  // {newsFeed[newsFeed.length - 1].text}
+                </span>
+              )}
             </div>
-            <div className="flex gap-1">
-              <div className="w-1 h-1 rounded-full bg-slate-600"></div>
-              <div className="w-1 h-1 rounded-full bg-slate-600"></div>
-              <div className="w-1 h-1 rounded-full bg-slate-600"></div>
+            <div className="flex items-center gap-2">
+              {isIntercomCollapsed ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
             </div>
           </div>
           
@@ -677,6 +806,142 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Floating Mobile Intercom Overlay */}
+      <AnimatePresence>
+        {showMobileIntercom && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: -10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: -10 }}
+            className="fixed top-16 left-4 z-50 w-[260px] h-40 bg-slate-950/95 text-white rounded-xl border border-slate-800 backdrop-blur-2xl shadow-2xl flex flex-col overflow-hidden pointer-events-auto lg:hidden"
+          >
+            <div className="bg-slate-900/80 px-3 py-1.5 text-[9px] font-bold uppercase tracking-widest text-slate-400 border-b border-slate-800 flex justify-between items-center">
+              <div className="flex items-center gap-1.5">
+                <Radio className="w-3 h-3 text-blue-400 animate-pulse" />
+                <span>{t.intercom}</span>
+              </div>
+              <button 
+                onClick={() => setShowMobileIntercom(false)}
+                className="text-[8px] font-bold uppercase tracking-wider text-slate-400 hover:text-white"
+              >
+                {language === 'es' ? 'Cerrar' : 'Close'}
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-2.5 space-y-2 text-[10px] font-mono scroll-smooth">
+              {newsFeed.length === 0 && <div className="text-slate-600 italic text-center mt-6">{t.waiting}</div>}
+              {newsFeed.map((news) => (
+                <div 
+                  key={news.id} 
+                  className={`
+                    relative pl-8 py-1 leading-tight
+                    ${news.type === 'positive' ? 'text-green-300' : ''}
+                    ${news.type === 'negative' ? 'text-red-300' : ''}
+                    ${news.type === 'mission' ? 'text-yellow-200 bg-yellow-500/5 rounded-lg p-1.5 pl-8' : ''}
+                    ${news.type === 'neutral' ? 'text-blue-200' : ''}
+                  `}
+                >
+                  <div className="absolute left-0 top-1 w-6 h-6 rounded-md bg-slate-800 border border-white/10 flex items-center justify-center overflow-hidden">
+                    {news.sender === 'Controller' ? (
+                      <div className="w-full h-full bg-blue-600 flex flex-col items-center justify-center">
+                        <div className="w-2.5 h-2.5 bg-white rounded-full mb-0.5" />
+                        <div className="w-4 h-1 bg-white rounded-t-full" />
+                      </div>
+                    ) : (
+                      <Settings className="w-3 h-3 text-slate-500" />
+                    )}
+                  </div>
+
+                  <div className="flex flex-col">
+                    <div className="flex justify-between items-center mb-0.5">
+                      <span className="text-[6px] font-black uppercase tracking-widest opacity-50">
+                        {news.sender || 'System'}
+                      </span>
+                    </div>
+                    <span>{news.text}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Floating Mobile Tasks Overlay */}
+      <AnimatePresence>
+        {isMobile && showMobileTasks && (activeChallenge || currentTask) && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: -10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: -10 }}
+            className="fixed top-16 right-4 z-40 flex flex-col gap-2 pointer-events-auto lg:hidden"
+          >
+            {activeChallenge && (
+              <div className="w-[240px] bg-red-900/95 text-white rounded-xl border-2 border-red-500 shadow-2xl backdrop-blur-md overflow-hidden">
+                <div 
+                  onClick={() => setIsTaskCollapsed(prev => !prev)}
+                  className="bg-red-600 px-3 py-1.5 flex justify-between items-center cursor-pointer select-none hover:bg-red-500 transition-colors"
+                >
+                  <span className="font-bold uppercase text-[10px] tracking-widest flex items-center gap-1.5">
+                    <Timer className="w-3.5 h-3.5" />
+                    {t.missionActive}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-black font-mono">
+                      {Math.floor(challengeTimer / 60)}:{(challengeTimer % 60).toString().padStart(2, '0')}
+                    </span>
+                    {isTaskCollapsed ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
+                  </div>
+                </div>
+                {!isTaskCollapsed && (
+                  <div className="p-2.5">
+                    <h4 className="text-[10px] font-black uppercase text-red-200 mb-0.5">{translations[language].challenges[`${activeChallenge.id}Title` as keyof typeof translations['en']['challenges']] || activeChallenge.title}</h4>
+                    <p className="text-[9px] leading-tight opacity-85">{translations[language].challenges[`${activeChallenge.id}Desc` as keyof typeof translations['en']['challenges']] || activeChallenge.description}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {currentTask && (
+              <div className="w-[240px] bg-slate-900/95 text-white rounded-xl border-2 border-yellow-500/50 shadow-2xl backdrop-blur-md overflow-hidden">
+                <div 
+                  onClick={() => setIsTaskCollapsed(prev => !prev)}
+                  className="bg-yellow-500/20 px-3 py-1.5 flex justify-between items-center border-b border-yellow-500/30 cursor-pointer select-none hover:bg-yellow-600/20 transition-colors"
+                >
+                  <span className="font-bold uppercase text-[10px] tracking-widest flex items-center gap-1.5">
+                    <Info className="w-3.5 h-3.5 text-yellow-400" />
+                    {t.currentTask}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-mono text-yellow-400">{currentTask.current}/{currentTask.target}</span>
+                    {isTaskCollapsed ? <ChevronDown className="w-3 h-3 text-yellow-400" /> : <ChevronUp className="w-3 h-3 text-yellow-400" />}
+                  </div>
+                </div>
+                {!isTaskCollapsed && (
+                  <div className="p-3">
+                    <p className="text-xs font-medium text-slate-100 mb-2">"{currentTask.text}"</p>
+                    <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                      <motion.div 
+                        className="bg-yellow-500 h-full"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(currentTask.current / currentTask.target) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <button
+              onClick={() => setShowMobileTasks(false)}
+              className="self-end bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider border border-slate-700 shadow"
+            >
+              {language === 'es' ? 'Ocultar Tareas' : 'Hide Tasks'}
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       {/* Footer & Mobile Controls */}
       <div className="absolute bottom-1 right-4 text-[8px] text-slate-500 font-mono uppercase tracking-widest text-right leading-tight opacity-50">

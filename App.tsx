@@ -871,6 +871,7 @@ function App() {
           setLanguage={setLanguage}
           xpGain={xpGain}
           moneyGain={moneyGain}
+          isTouchDevice={isTouchDevice}
         />
       )}
 

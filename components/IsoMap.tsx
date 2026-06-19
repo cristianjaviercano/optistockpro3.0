@@ -615,8 +615,14 @@ const IsoMap: React.FC<IsoMapProps> = ({
 
     const handleKeyDown = (e: KeyboardEvent) => handleKey(e.key, true);
     const handleKeyUp = (e: KeyboardEvent) => handleKey(e.key, false);
-    const handleVirtualKeyDown = (e: any) => handleKey(e.detail, true);
-    const handleVirtualKeyUp = (e: any) => handleKey(e.detail, false);
+    const handleVirtualKeyDown = (e: any) => {
+      const key = typeof e.detail === 'string' ? e.detail : e.detail?.key;
+      if (key) handleKey(key, true);
+    };
+    const handleVirtualKeyUp = (e: any) => {
+      const key = typeof e.detail === 'string' ? e.detail : e.detail?.key;
+      if (key) handleKey(key, false);
+    };
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
